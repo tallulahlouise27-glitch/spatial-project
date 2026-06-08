@@ -172,6 +172,10 @@ panel <- panel %>%
   mutate(
     # Log income (add 1 to handle zeros)
     log_income    = log(ingreso_medio + 1),
+    # Log income by tertile — main heterogeneity outcomes
+    log_income_t1 = log(ingreso_T1 + 1),   # bottom third
+    log_income_t2 = log(ingreso_T2 + 1),   # middle third
+    log_income_t3 = log(ingreso_T3 + 1),   # top third
     # Sargassum exposure: coverage fraction (0–1) needs no log transform
     # afai_cov_annual  = annual mean fraction of coastal pixels with Sargassum
     # afai_peak        = same, restricted to peak season May–Sep

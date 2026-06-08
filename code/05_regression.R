@@ -91,7 +91,30 @@ iv_fishing <- feols(
   cluster = ~muni_fe
 )
 
-# ── Models 6–8: By coastal proximity ──────────────────────────
+# ── Models 6–8: By income tertile ────────────────────────────
+# Tests whether Sargassum hits poorer households harder.
+# Expected: negative coefficient largest (most negative) for T1,
+# shrinking toward zero for T3.
+
+iv_t1 <- feols(
+  log_income_t1 ~ 1 | muni_fe + year_fe | afai_cov_annual ~ z_bartik,
+  data    = panel,
+  cluster = ~muni_fe
+)
+
+iv_t2 <- feols(
+  log_income_t2 ~ 1 | muni_fe + year_fe | afai_cov_annual ~ z_bartik,
+  data    = panel,
+  cluster = ~muni_fe
+)
+
+iv_t3 <- feols(
+  log_income_t3 ~ 1 | muni_fe + year_fe | afai_cov_annual ~ z_bartik,
+  data    = panel,
+  cluster = ~muni_fe
+)
+
+# ── Models 9–11: By coastal proximity ─────────────────────────
 # Tests whether the Sargassum effect is stronger for municipalities
 # with direct coastline vs near-coastal vs inland.
 
@@ -144,6 +167,13 @@ etable(
   se.below = TRUE
 )
 
+cat("\n--- Heterogeneity by income tertile ---\n")
+etable(
+  iv_t1, iv_t2, iv_t3,
+  headers  = c("T1 (Bottom)", "T2 (Middle)", "T3 (Top)"),
+  se.below = TRUE
+)
+
 cat("\n--- Heterogeneity by coastal proximity ---\n")
 het_models   <- Filter(Negate(is.null), list(iv_coastal, iv_near_coastal, iv_inland))
 het_headers  <- c("Coastal", "Near-Coastal", "Inland")[!sapply(list(iv_coastal, iv_near_coastal, iv_inland), is.null)]
@@ -176,6 +206,16 @@ etable(
   se.below = TRUE,
   tex      = TRUE,
   title    = "Effect of Sargassum Exposure on Household Welfare, DR 2017--2025"
+)
+sink()
+
+sink(file.path(path_results, "regression_tertile_latex.tex"))
+etable(
+  iv_t1, iv_t2, iv_t3,
+  headers  = c("T1 (Bottom Third)", "T2 (Middle Third)", "T3 (Top Third)"),
+  se.below = TRUE,
+  tex      = TRUE,
+  title    = "Effect of Sargassum Exposure by Income Tertile, DR 2017--2025"
 )
 sink()
 

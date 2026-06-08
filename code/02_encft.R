@@ -80,6 +80,36 @@ hogar <- encft %>%
     .groups = "drop"
   )
 
+# ── Assign national income tertiles by year ───────────────────
+# Per-capita household income is the welfare measure for ranking.
+# Tertile cutoffs are computed nationally within each year so that
+# T1 = poorest third of DR households, T2 = middle, T3 = richest third.
+# Zero-income households are included — they fall naturally into T1.
+
+hogar <- hogar %>%
+  mutate(ingreso_pc = ingreso_hogar / pmax(n_miembros, 1))
+
+tertile_cuts <- hogar %>%
+  group_by(ANO) %>%
+  summarise(
+    t1_cut = quantile(ingreso_pc, 1/3, na.rm = TRUE),
+    t2_cut = quantile(ingreso_pc, 2/3, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+hogar <- hogar %>%
+  left_join(tertile_cuts, by = "ANO") %>%
+  mutate(
+    tertile = case_when(
+      ingreso_pc <= t1_cut ~ "T1",
+      ingreso_pc <= t2_cut ~ "T2",
+      TRUE                 ~ "T3"
+    )
+  )
+
+cat("Tertile cutoffs by year (per-capita RD$/month):\n")
+print(tertile_cuts)
+
 # ── Aggregate to municipality × year level (for spatial merge) ──
 municipio <- encft %>%
   group_by(ID_MUNICIPIO, DES_MUNICIPIO, ID_PROVINCIA, DES_PROVINCIA, ANO) %>%
@@ -92,6 +122,23 @@ municipio <- encft %>%
                                        w = as.numeric(FACTOR_EXPANSION), na.rm = TRUE),
     .groups = "drop"
   )
+
+# Merge tertile mean incomes into municipality panel
+municipio_tertiles <- hogar %>%
+  group_by(ID_MUNICIPIO, DES_MUNICIPIO, ID_PROVINCIA, DES_PROVINCIA, ANO, tertile) %>%
+  summarise(
+    ingreso_tertile = weighted.mean(ingreso_hogar, w = as.numeric(FACTOR_EXPANSION), na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  pivot_wider(
+    names_from  = tertile,
+    values_from = ingreso_tertile,
+    names_prefix = "ingreso_"
+  )
+
+municipio <- municipio %>%
+  left_join(municipio_tertiles,
+            by = c("ID_MUNICIPIO", "DES_MUNICIPIO", "ID_PROVINCIA", "DES_PROVINCIA", "ANO"))
 
 # ── Save ─────────────────────────────────────────────────────
 saveRDS(hogar,     file.path(path_processed, "encft_hogar.rds"))
@@ -109,4 +156,8 @@ cat("Avg income (municipality level, unweighted):\n")
 print(summary(municipio$ingreso_medio))
 cat("Avg employment rate:     ", round(mean(municipio$tasa_empleo, na.rm = TRUE), 3), "\n")
 cat("Avg fishing share:       ", round(mean(municipio$share_pesca, na.rm = TRUE), 3), "\n")
+cat("Avg income by tertile (municipality means):\n")
+cat("  T1 (bottom third): RD$", round(mean(municipio$ingreso_T1, na.rm=TRUE)), "\n")
+cat("  T2 (middle third): RD$", round(mean(municipio$ingreso_T2, na.rm=TRUE)), "\n")
+cat("  T3 (top third):    RD$", round(mean(municipio$ingreso_T3, na.rm=TRUE)), "\n")
 cat("=============================================\n")
