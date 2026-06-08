@@ -1,0 +1,11 @@
+# Data files — too large for GitHub, kept locally and on OneDrive
+data/
+OneDrive_2_07-06-2026/
+
+# Mac system files
+.DS_Store
+
+# R temporary files
+.Rhistory
+.RData
+.Rproj.user/
