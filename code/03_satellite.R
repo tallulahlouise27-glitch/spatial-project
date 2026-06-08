@@ -125,22 +125,32 @@ if (file.exists(out_instr)) {
   instrument <- readRDS(out_instr)
 } else {
   cat("=== Downloading open-ocean AFAI instrument (2017–2025) ===\n")
+  # Ocean box is large (~300 sq degrees), so download one month at a time
+  # and aggregate to a single mean immediately — never holding a full year in memory.
   instrument <- bind_rows(lapply(STUDY_YEARS, function(yr) {
-
-    pixels <- download_afai_year(yr,
-                                 OC_LAT_MIN, OC_LAT_MAX,
-                                 OC_LON_MIN, OC_LON_MAX,
-                                 "Open ocean")
-    if (is.null(pixels) || nrow(pixels) == 0) return(NULL)
-
-    # Aggregate all ocean pixels to a single monthly mean
-    pixels %>%
-      group_by(year, month) %>%
-      summarise(
-        afai_ocean_mean     = mean(AFAI, na.rm = TRUE),
-        afai_ocean_coverage = mean(AFAI > 0, na.rm = TRUE),
-        .groups = "drop"
-      )
+    cat("  Downloading Open ocean", yr, "...\n")
+    bind_rows(lapply(1:12, function(mo) {
+      start <- sprintf("%d-%02d-01", yr, mo)
+      end   <- format(as.Date(start) + months(1) - lubridate::days(1), "%Y-%m-%d")
+      tryCatch({
+        raw <- griddap(DATASET_ID, url = ERDDAP_URL,
+                       time      = c(start, end),
+                       latitude  = c(OC_LAT_MIN, OC_LAT_MAX),
+                       longitude = c(OC_LON_MIN, OC_LON_MAX),
+                       fields    = "AFAI")
+        raw$data %>%
+          filter(!is.na(AFAI)) %>%
+          summarise(
+            year                = yr,
+            month               = mo,
+            afai_ocean_mean     = mean(AFAI, na.rm = TRUE),
+            afai_ocean_coverage = mean(AFAI > 0, na.rm = TRUE)
+          )
+      }, error = function(e) {
+        cat("    WARNING: Ocean", yr, mo, "–", conditionMessage(e), "\n")
+        NULL
+      })
+    }))
   }))
 
   saveRDS(instrument, out_instr)
