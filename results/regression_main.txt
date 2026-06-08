@@ -2,15 +2,15 @@
                 OLS Income  IV Income IV Employment
 Dependent Var.: log_income log_income   tasa_empleo
                                                    
-afai_cov_annual  -0.4235**    0.3959       -0.0225 
-                 (0.1334)    (0.8655)      (0.2209)
+afai_cov_annual   -0.3417*      7.367        1.626 
+                  (0.1470)    (16.36)       (3.595)
 Fixed-Effects:  ---------- ----------   -----------
 muni_fe                Yes        Yes           Yes
 year_fe                Yes        Yes           Yes
 _______________ __________ __________   ___________
 S.E.: Clustered by: muni.. by: muni..   by: muni_fe
-Observations           897        897           897
-R2                 0.67987    0.67432       0.40707
-Within R2          0.01730    0.00026       1.44e-5
+Observations           883        883           883
+R2                 0.67631    0.67393       0.41533
+Within R2          0.00946    0.00218       0.00186
 ---
 Signif. codes: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
