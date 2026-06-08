@@ -68,12 +68,23 @@ download_afai_year <- function(year, lat_min, lat_max, lon_min, lon_max, label) 
 
 # ── Step 1: Load DR municipality boundaries ───────────────────
 cat("=== Loading DR municipality boundaries ===\n")
-dr_gadm     <- gadm(country = "DOM", level = 2, path = path_raw_sat)
-dr_sf       <- st_as_sf(dr_gadm) %>%
+dr_gadm <- gadm(country = "DOM", level = 2, path = path_raw_sat)
+dr_sf   <- st_as_sf(dr_gadm) %>%
   select(municipio = NAME_2, provincia = NAME_1) %>%
   st_transform(4326)
-dr_buffered <- st_buffer(dr_sf, dist = 20000)   # 20 km seaward buffer
-cat("Municipalities loaded:", nrow(dr_sf), "\n\n")
+
+# Build spatial filters in projected CRS (UTM Zone 19N) so distances are in metres
+dr_sf_proj  <- st_transform(dr_sf, 32619)
+dr_buffered <- st_buffer(dr_sf_proj, dist = 20000) %>% st_transform(4326)  # 20km seaward
+
+# Nearshore exclusion zone: strip pixels within 3km of the coastline.
+# The 0–3km zone is shallow water dominated by seagrass and coral bottom
+# reflectance that permanently registers positive AFAI regardless of Sargassum.
+coastline_proj  <- st_union(dr_sf_proj) %>% st_boundary()
+nearshore_excl  <- st_buffer(coastline_proj, dist = 3000) %>% st_transform(4326)
+
+cat("Municipalities loaded:", nrow(dr_sf), "\n")
+cat("Nearshore exclusion zone: 3km from coastline\n\n")
 
 # ── Step 2: Download + spatially aggregate DR coastal AFAI ────
 # Process year by year to keep memory usage manageable.
@@ -97,16 +108,23 @@ if (file.exists(out_coastal)) {
 
     # Spatially join pixels to buffered municipalities
     pts    <- st_as_sf(pixels, coords = c("longitude", "latitude"), crs = 4326)
-    joined <- st_join(pts, dr_buffered, join = st_within, left = FALSE) %>%
-      st_drop_geometry()
+    joined <- st_join(pts, dr_buffered, join = st_within, left = FALSE)
+
+    # Remove nearshore pixels (0–3km from coastline) — shallow water
+    # contamination from seagrass and coral bottom reflectance
+    nearshore_flag <- lengths(st_intersects(joined, nearshore_excl)) > 0
+    joined <- joined[!nearshore_flag, ] %>% st_drop_geometry()
 
     # Aggregate to municipality × month
+    # afai_coverage: fraction of pixels exceeding the Sargassum threshold (0.001)
+    # This threshold separates genuine floating Sargassum mats from background
+    # ocean signal. Source: Wang & Hu (2016) AFAI methodology.
     joined %>%
       group_by(municipio, provincia, year, month) %>%
       summarise(
         afai_mean     = mean(AFAI, na.rm = TRUE),
         afai_max      = max(AFAI,  na.rm = TRUE),
-        afai_coverage = mean(AFAI > 0, na.rm = TRUE),  # fraction of pixels with Sargassum
+        afai_coverage = mean(AFAI > 0.001, na.rm = TRUE),
         n_pixels      = n(),
         .groups = "drop"
       )
