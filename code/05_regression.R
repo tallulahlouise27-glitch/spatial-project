@@ -94,23 +94,37 @@ iv_fishing <- feols(
 # ── Models 6–8: By coastal proximity ──────────────────────────
 # Tests whether the Sargassum effect is stronger for municipalities
 # with direct coastline vs near-coastal vs inland.
-iv_coastal      <- feols(
-  log_income ~ 1 | muni_fe + year_fe | afai_cov_annual ~ z_bartik,
-  data    = filter(panel, coastal_type == "coastal"),
-  cluster = ~muni_fe
-)
 
-iv_near_coastal <- feols(
-  log_income ~ 1 | muni_fe + year_fe | afai_cov_annual ~ z_bartik,
-  data    = filter(panel, coastal_type == "near_coastal"),
-  cluster = ~muni_fe
-)
+# Check sample sizes before running — small groups produce unreliable results
+MIN_MUNICIPALITIES <- 10
+coastal_counts <- panel %>%
+  group_by(coastal_type) %>%
+  summarise(n_munis = n_distinct(ID_MUNICIPIO), n_obs = n(), .groups = "drop")
 
-iv_inland <- feols(
-  log_income ~ 1 | muni_fe + year_fe | afai_cov_annual ~ z_bartik,
-  data    = filter(panel, coastal_type == "inland"),
-  cluster = ~muni_fe
-)
+cat("\nSample size by coastal type:\n")
+print(coastal_counts)
+
+small_groups <- coastal_counts %>% filter(n_munis < MIN_MUNICIPALITIES)
+if (nrow(small_groups) > 0) {
+  cat("\nWARNING: the following groups have fewer than", MIN_MUNICIPALITIES,
+      "municipalities — IV estimates will be unreliable:\n")
+  print(small_groups$coastal_type)
+}
+
+safe_iv <- function(type, data) {
+  sub <- filter(data, coastal_type == type)
+  n   <- n_distinct(sub$ID_MUNICIPIO)
+  if (n < MIN_MUNICIPALITIES) {
+    cat("SKIPPING", type, "(only", n, "municipalities)\n")
+    return(NULL)
+  }
+  feols(log_income ~ 1 | muni_fe + year_fe | afai_cov_annual ~ z_bartik,
+        data = sub, cluster = ~muni_fe)
+}
+
+iv_coastal      <- safe_iv("coastal",      panel)
+iv_near_coastal <- safe_iv("near_coastal", panel)
+iv_inland       <- safe_iv("inland",       panel)
 
 # ── Print results ─────────────────────────────────────────────
 cat("====== REGRESSION RESULTS ======\n\n")
@@ -131,11 +145,13 @@ etable(
 )
 
 cat("\n--- Heterogeneity by coastal proximity ---\n")
-etable(
-  iv_coastal, iv_near_coastal, iv_inland,
-  headers  = c("Coastal", "Near-Coastal", "Inland"),
-  se.below = TRUE
-)
+het_models   <- Filter(Negate(is.null), list(iv_coastal, iv_near_coastal, iv_inland))
+het_headers  <- c("Coastal", "Near-Coastal", "Inland")[!sapply(list(iv_coastal, iv_near_coastal, iv_inland), is.null)]
+if (length(het_models) > 0) {
+  do.call(etable, c(het_models, list(headers = het_headers, se.below = TRUE)))
+} else {
+  cat("No coastal-type subgroups had sufficient municipalities to estimate.\n")
+}
 
 # ── Instrument validity checks ────────────────────────────────
 cat("\n====== INSTRUMENT CHECKS ======\n")
@@ -163,15 +179,16 @@ etable(
 )
 sink()
 
-sink(file.path(path_results, "regression_heterogeneity_latex.tex"))
-etable(
-  iv_coastal, iv_near_coastal, iv_inland,
-  headers  = c("Coastal", "Near-Coastal", "Inland"),
-  se.below = TRUE,
-  tex      = TRUE,
-  title    = "Heterogeneity by Coastal Proximity, DR 2017--2025"
-)
-sink()
+if (length(het_models) > 0) {
+  sink(file.path(path_results, "regression_heterogeneity_latex.tex"))
+  do.call(etable, c(het_models, list(
+    headers = het_headers,
+    se.below = TRUE,
+    tex   = TRUE,
+    title = "Heterogeneity by Coastal Proximity, DR 2017--2025"
+  )))
+  sink()
+}
 
 # ── Coefficient plot ──────────────────────────────────────────
 coef_data <- data.frame(
