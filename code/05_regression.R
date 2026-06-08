@@ -91,6 +91,27 @@ iv_fishing <- feols(
   cluster = ~muni_fe
 )
 
+# ── Models 6–8: By coastal proximity ──────────────────────────
+# Tests whether the Sargassum effect is stronger for municipalities
+# with direct coastline vs near-coastal vs inland.
+iv_coastal      <- feols(
+  log_income ~ 1 | muni_fe + year_fe | afai_cov_annual ~ z_bartik,
+  data    = filter(panel, coastal_type == "coastal"),
+  cluster = ~muni_fe
+)
+
+iv_near_coastal <- feols(
+  log_income ~ 1 | muni_fe + year_fe | afai_cov_annual ~ z_bartik,
+  data    = filter(panel, coastal_type == "near_coastal"),
+  cluster = ~muni_fe
+)
+
+iv_inland <- feols(
+  log_income ~ 1 | muni_fe + year_fe | afai_cov_annual ~ z_bartik,
+  data    = filter(panel, coastal_type == "inland"),
+  cluster = ~muni_fe
+)
+
 # ── Print results ─────────────────────────────────────────────
 cat("====== REGRESSION RESULTS ======\n\n")
 
@@ -106,6 +127,13 @@ cat("\n--- Main results ---\n")
 etable(
   ols_income, iv_income, iv_employ, iv_peak, iv_fishing,
   headers = c("OLS Income", "IV Income", "IV Employ", "IV Peak", "IV Fishing"),
+  se.below = TRUE
+)
+
+cat("\n--- Heterogeneity by coastal proximity ---\n")
+etable(
+  iv_coastal, iv_near_coastal, iv_inland,
+  headers  = c("Coastal", "Near-Coastal", "Inland"),
   se.below = TRUE
 )
 
@@ -132,6 +160,16 @@ etable(
   se.below = TRUE,
   tex      = TRUE,
   title    = "Effect of Sargassum Exposure on Household Welfare, DR 2017--2025"
+)
+sink()
+
+sink(file.path(path_results, "regression_heterogeneity_latex.tex"))
+etable(
+  iv_coastal, iv_near_coastal, iv_inland,
+  headers  = c("Coastal", "Near-Coastal", "Inland"),
+  se.below = TRUE,
+  tex      = TRUE,
+  title    = "Heterogeneity by Coastal Proximity, DR 2017--2025"
 )
 sink()
 

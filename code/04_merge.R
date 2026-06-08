@@ -5,6 +5,8 @@
 
 options(repos = c(CRAN = "https://cran.rstudio.com/"))
 library(tidyverse)
+library(sf)
+library(geodata)
 
 path_processed <- "data/processed/"
 
@@ -102,19 +104,64 @@ sat_match <- sat_annual %>%
     muni_key = clean_name(municipio)
   )
 
-# ── Step 3: Merge ─────────────────────────────────────────────
+# ── Step 3: Classify municipalities by coastal proximity ──────
+# Three categories:
+#   "coastal"      — boundary directly touches the sea
+#   "near_coastal" — within 40km of the coast but no direct shoreline
+#   "inland"       — more than 40km from the coast
+#
+# Method: dissolve all municipality polygons → DR outline → extract coastline →
+# test each municipality against it.
+
+cat("Classifying municipalities by coastal proximity...\n")
+
+dr_gadm <- gadm(country = "DOM", level = 2, path = "data/raw/satellite/")
+dr_sf   <- st_as_sf(dr_gadm) %>%
+  select(municipio = NAME_2) %>%
+  st_transform(32619)   # UTM Zone 19N — metres, covers Dominican Republic
+
+# Build coastline as the outer boundary of the dissolved island polygon
+coastline <- st_union(dr_sf) %>% st_boundary()
+
+# 500m buffer around coastline to handle floating-point edge cases
+coast_zone <- st_buffer(coastline, dist = 500)
+
+# coastal = municipality polygon overlaps the 500m coastal strip
+touches_coast <- lengths(st_intersects(dr_sf, coast_zone)) > 0
+
+# distance (metres) from each municipality centroid to coastline
+dist_m <- as.numeric(st_distance(st_centroid(dr_sf), coastline))
+
+coastal_lookup <- dr_sf %>%
+  st_drop_geometry() %>%
+  mutate(
+    muni_key = clean_name(municipio),
+    coastal_type = case_when(
+      touches_coast      ~ "coastal",
+      dist_m < 40000     ~ "near_coastal",
+      TRUE               ~ "inland"
+    )
+  ) %>%
+  select(muni_key, coastal_type)
+
+cat("Coastal type breakdown:\n")
+print(table(coastal_lookup$coastal_type))
+cat("\n")
+
+# ── Step 4: Merge ─────────────────────────────────────────────
 panel <- encft_match %>%
-  left_join(sat_match, by = c("muni_key", "ANO" = "year")) %>%
-  left_join(instr_annual, by = c("ANO" = "year"))
+  left_join(sat_match,      by = c("muni_key", "ANO" = "year")) %>%
+  left_join(instr_annual,   by = c("ANO" = "year")) %>%
+  left_join(coastal_lookup, by = "muni_key")
 
 cat("Merge result:", nrow(panel), "rows\n")
 cat("Municipalities matched with satellite data:",
-    sum(!is.na(panel$chla_mean_annual)), "of", nrow(panel), "\n")
+    sum(!is.na(panel$afai_cov_annual)), "of", nrow(panel), "\n")
 
 # Municipalities with NO satellite data in any year (truly unmatched)
 truly_unmatched <- panel %>%
   group_by(DES_MUNICIPIO, DES_PROVINCIA) %>%
-  summarise(any_sat = any(!is.na(chla_mean_annual)), .groups = "drop") %>%
+  summarise(any_sat = any(!is.na(afai_cov_annual)), .groups = "drop") %>%
   filter(!any_sat)
 
 cat("\nMunicipalities with no satellite data at all:", nrow(truly_unmatched),
@@ -141,6 +188,8 @@ cat("Municipalities:       ", n_distinct(panel$ID_MUNICIPIO), "\n")
 cat("Years:                ", paste(sort(unique(panel$ANO)), collapse = ", "), "\n")
 cat("Employment rate mean: ", round(mean(panel$tasa_empleo, na.rm=TRUE), 3), "\n")
 cat("Log income mean:      ", round(mean(panel$log_income, na.rm=TRUE), 3), "\n")
+cat("\nMunicipalities by coastal type:\n")
+print(table(panel$coastal_type, useNA = "ifany"))
 
 # ── Step 5: Save ──────────────────────────────────────────────
 saveRDS(panel, file.path(path_processed, "panel_analysis.rds"))
