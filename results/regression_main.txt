@@ -1,0 +1,16 @@
+                ols_income  iv_income     iv_employ
+                OLS Income  IV Income IV Employment
+Dependent Var.: log_income log_income   tasa_empleo
+                                                   
+log_chla           0.0279     0.1012        0.0147 
+                  (0.0333)   (0.1159)      (0.0219)
+Fixed-Effects:  ---------- ----------   -----------
+muni_fe                Yes        Yes           Yes
+year_fe                Yes        Yes           Yes
+_______________ __________ __________   ___________
+S.E.: Clustered by: muni.. by: muni..   by: muni_fe
+Observations         1,090      1,090         1,090
+R2                 0.69470    0.69488       0.41860
+Within R2          0.00095    0.00153       0.00055
+---
+Signif. codes: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1

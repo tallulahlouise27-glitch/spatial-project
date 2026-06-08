@@ -26,6 +26,32 @@ path_figures   <- "figures/"
 panel <- readRDS(file.path(path_processed, "panel_analysis.rds"))
 cat("Panel loaded:", nrow(panel), "observations\n\n")
 
+# ── Construct Bartik/shift-share instrument ───────────────────
+# Problem: open-ocean chlorophyll varies only by YEAR, so it is collinear
+# with year fixed effects and cannot be used as a stand-alone instrument.
+#
+# Solution: Bartik (shift-share) instrument =
+#   open_ocean_chla_t  (annual "shift"  — exogenous Atlantic conditions)
+#   × baseline_chla_i  (municipality "share" — pre-determined local exposure)
+#
+# This creates municipality × year variation that survives both FEs.
+# Exclusion restriction: open-ocean Sargassum affects DR income only through
+# coastal Sargassum inundation, scaled by how exposed each municipality is.
+
+panel <- panel %>%
+  group_by(ID_MUNICIPIO) %>%
+  mutate(
+    baseline_chla = mean(chla_mean_annual[ANO == min(ANO)], na.rm = TRUE)
+  ) %>%
+  ungroup() %>%
+  mutate(
+    z_bartik      = log_chla_ocean * log1p(baseline_chla)
+  )
+
+cat("Instrument (z_bartik) summary:\n")
+print(summary(panel$z_bartik))
+cat("\n")
+
 # ── Model 1: OLS with municipality + year fixed effects ───────
 # Baseline: does coastal chlorophyll correlate with lower income?
 ols_income <- feols(
@@ -35,24 +61,24 @@ ols_income <- feols(
 )
 
 # ── Model 2: IV regression (2SLS) ─────────────────────────────
-# Instrument: open-ocean chlorophyll (log_chla_ocean)
+# Instrument: open-ocean chlorophyll (z_bartik)
 # This is the main causal estimate
 iv_income <- feols(
-  log_income ~ 1 | muni_fe + year_fe | log_chla ~ log_chla_ocean,
+  log_income ~ 1 | muni_fe + year_fe | log_chla ~ z_bartik,
   data    = panel,
   cluster = ~muni_fe
 )
 
 # ── Model 3: Effect on employment rate ────────────────────────
 iv_employ <- feols(
-  tasa_empleo ~ 1 | muni_fe + year_fe | log_chla ~ log_chla_ocean,
+  tasa_empleo ~ 1 | muni_fe + year_fe | log_chla ~ z_bartik,
   data    = panel,
   cluster = ~muni_fe
 )
 
 # ── Model 4: Peak season exposure (May–Sep) ───────────────────
 iv_peak <- feols(
-  log_income ~ 1 | muni_fe + year_fe | log_chla_peak ~ log_chla_ocean,
+  log_income ~ 1 | muni_fe + year_fe | log_chla_peak ~ z_bartik,
   data    = panel,
   cluster = ~muni_fe
 )
@@ -62,7 +88,7 @@ fishing_muni <- panel %>%
   filter(share_pesca > median(share_pesca, na.rm = TRUE))
 
 iv_fishing <- feols(
-  log_income ~ 1 | muni_fe + year_fe | log_chla ~ log_chla_ocean,
+  log_income ~ 1 | muni_fe + year_fe | log_chla ~ z_bartik,
   data    = fishing_muni,
   cluster = ~muni_fe
 )
@@ -72,7 +98,7 @@ cat("====== REGRESSION RESULTS ======\n\n")
 
 cat("--- First stage (instrument strength) ---\n")
 first_stage <- feols(
-  log_chla ~ log_chla_ocean | muni_fe + year_fe,
+  log_chla ~ z_bartik | muni_fe + year_fe,
   data    = panel,
   cluster = ~muni_fe
 )

@@ -56,38 +56,69 @@ clean_name <- function(x) {
     gsub("\\s+", " ", .)
 }
 
+# Crosswalk: ENCFT short/common names → GADM official names
+# ENCFT uses popular names; GADM uses full official municipality names
+name_crosswalk <- tribble(
+  ~encft_name,                 ~gadm_name,
+  "azua",                      "azua de compostela",
+  "barahona",                  "santa cruz de barahona",
+  "bisono",                    "villa bisono",
+  "cambita garabitos",         "cambita garabito",
+  "castanuelas",               "castanuela",
+  "el seibo",                  "santa cruz del seybo",
+  "hato mayor",                "hato mayor del rey",
+  "higuey",                    "salvaleon de higuey",
+  "la vega",                   "concepcion de la vega",
+  "monte cristi",              "san fernando de monte cristi",
+  "neiba",                     "neyba",
+  "peralvillo",                "esperalvillo",
+  "puerto plata",              "san felipe de puerto plata",
+  "quisqueya",                 "quisquella",
+  "samana",                    "santa barbara de samana",
+  "san antonio de guerra",     "guerra",
+  "san gregorio de nigua",     "nigua",
+  "san juan",                  "san juan de la maguana",
+  "santiago",                  "santiago de los caballeros",
+  "santo domingo de guzman",   "distrito nacional",
+  "tabara arriba",             "villa tabara arriba",
+  "villa isabela",             "la isabela",
+  "villa montellano",          "montellano",
+  "villa riva",                "villa rivas",
+  "villa vasquez",             "villa vazquez",
+  "yaguate",                   "san gregorio de yaguate"
+)
+
 encft_match <- encft %>%
   mutate(
     ANO          = as.integer(ANO),
-    muni_key     = clean_name(DES_MUNICIPIO),
-    prov_key     = clean_name(DES_PROVINCIA)
-  )
+    muni_key_raw = clean_name(DES_MUNICIPIO)
+  ) %>%
+  left_join(name_crosswalk, by = c("muni_key_raw" = "encft_name")) %>%
+  mutate(muni_key = coalesce(gadm_name, muni_key_raw)) %>%
+  select(-muni_key_raw, -gadm_name)
 
 sat_match <- sat_annual %>%
   mutate(
-    muni_key = clean_name(municipio),
-    prov_key = clean_name(provincia)
+    muni_key = clean_name(municipio)
   )
 
 # ── Step 3: Merge ─────────────────────────────────────────────
 panel <- encft_match %>%
-  left_join(sat_match, by = c("muni_key", "prov_key", "ANO" = "year")) %>%
+  left_join(sat_match, by = c("muni_key", "ANO" = "year")) %>%
   left_join(instr_annual, by = c("ANO" = "year"))
 
 cat("Merge result:", nrow(panel), "rows\n")
 cat("Municipalities matched with satellite data:",
     sum(!is.na(panel$chla_mean_annual)), "of", nrow(panel), "\n")
 
-# Flag unmatched municipalities for inspection
-unmatched <- panel %>%
-  filter(is.na(chla_mean_annual)) %>%
-  distinct(DES_MUNICIPIO, DES_PROVINCIA) %>%
-  arrange(DES_PROVINCIA, DES_MUNICIPIO)
+# Municipalities with NO satellite data in any year (truly unmatched)
+truly_unmatched <- panel %>%
+  group_by(DES_MUNICIPIO, DES_PROVINCIA) %>%
+  summarise(any_sat = any(!is.na(chla_mean_annual)), .groups = "drop") %>%
+  filter(!any_sat)
 
-if (nrow(unmatched) > 0) {
-  cat("\nUnmatched municipalities (", nrow(unmatched), "):\n")
-  print(unmatched)
-}
+cat("\nMunicipalities with no satellite data at all:", nrow(truly_unmatched),
+    "(likely landlocked — will be dropped from regression)\n")
 
 # ── Step 4: Create analysis variables ─────────────────────────
 panel <- panel %>%
