@@ -27,18 +27,18 @@ cat("Instrument rows:", nrow(sat_instr), "\n\n")
 sat_annual <- sat_coastal %>%
   group_by(municipio, provincia, year) %>%
   summarise(
-    chla_mean_annual = mean(chla_coastal_mean, na.rm = TRUE),
-    chla_max_annual  = max(chla_coastal_max,  na.rm = TRUE),
+    afai_mean_annual = mean(afai_mean,     na.rm = TRUE),
+    afai_cov_annual  = mean(afai_coverage, na.rm = TRUE),
     # Peak season (May–Sep) when Sargassum is most intense in Caribbean
-    chla_peak = mean(chla_coastal_mean[month %in% 5:9], na.rm = TRUE),
+    afai_peak        = mean(afai_coverage[month %in% 5:9], na.rm = TRUE),
     .groups = "drop"
   )
 
 instr_annual <- sat_instr %>%
   group_by(year) %>%
   summarise(
-    chla_ocean_annual = mean(chla_ocean_mean, na.rm = TRUE),
-    chla_ocean_peak   = mean(chla_ocean_mean[month %in% 5:9], na.rm = TRUE),
+    afai_ocean_annual = mean(afai_ocean_mean,     na.rm = TRUE),
+    afai_ocean_cov    = mean(afai_ocean_coverage, na.rm = TRUE),
     .groups = "drop"
   )
 
@@ -125,16 +125,16 @@ panel <- panel %>%
   mutate(
     # Log income (add 1 to handle zeros)
     log_income    = log(ingreso_medio + 1),
-    # Sargassum exposure variables (log + 1 to handle near-zero values)
-    log_chla      = log(chla_mean_annual + 1),
-    log_chla_peak = log(chla_peak + 1),
-    log_chla_ocean= log(chla_ocean_annual + 1),
+    # Sargassum exposure: coverage fraction (0–1) needs no log transform
+    # afai_cov_annual  = annual mean fraction of coastal pixels with Sargassum
+    # afai_peak        = same, restricted to peak season May–Sep
+    # afai_ocean_cov   = open-ocean coverage (instrument shift)
     # Year and municipality as factors for fixed effects
     year_fe  = factor(ANO),
     muni_fe  = factor(ID_MUNICIPIO)
   ) %>%
   # Keep only rows with all key variables present
-  filter(!is.na(log_income), !is.na(log_chla), !is.na(log_chla_ocean))
+  filter(!is.na(log_income), !is.na(afai_cov_annual), !is.na(afai_ocean_cov))
 
 cat("\nFinal analysis panel:", nrow(panel), "observations\n")
 cat("Municipalities:       ", n_distinct(panel$ID_MUNICIPIO), "\n")

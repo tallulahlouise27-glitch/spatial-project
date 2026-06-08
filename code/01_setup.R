@@ -3,11 +3,16 @@
 # Script 1: Setup and package loading
 # ============================================================
 
+# Set CRAN mirror
+options(repos = c(CRAN = "https://cran.rstudio.com/"))
+
 # Install packages if not already installed
 packages <- c(
   "tidyverse",   # data cleaning and manipulation
   "sf",          # spatial data (shapefiles etc.)
   "terra",       # raster/satellite data
+  "rerddap",     # download satellite data from ERDDAP servers
+  "geodata",     # download GADM administrative boundaries
   "plm",         # panel data regression
   "fixest",      # fast fixed effects regression
   "AER",         # instrumental variable regression (ivreg)
@@ -28,7 +33,7 @@ for (pkg in packages) {
 # Path to your raw ENCFT data
 path_encft <- "data/raw/"
 
-# Path to NASA satellite data (we will add this later)
+# Path to AFAI satellite data (NOAA AOML / USF Optical Oceanography Lab)
 path_satellite <- "data/raw/satellite/"
 
 # Where to save cleaned data
