@@ -239,12 +239,18 @@ tryCatch(
 )
 
 cat("\n--- Heterogeneity by coastal proximity ---\n")
-het_models   <- Filter(Negate(is.null), list(iv_coastal, iv_near_coastal, iv_inland))
-het_headers  <- c("Coastal", "Near-Coastal", "Inland")[!sapply(list(iv_coastal, iv_near_coastal, iv_inland), is.null)]
-if (length(het_models) > 0) {
-  do.call(etable, c(het_models, list(headers = het_headers, se.below = TRUE)))
-} else {
+het_models  <- Filter(Negate(is.null), list(iv_coastal, iv_near_coastal, iv_inland))
+het_headers <- c("Coastal", "Near-Coastal", "Inland")[
+  !c(is.null(iv_coastal), is.null(iv_near_coastal), is.null(iv_inland))
+]
+if (length(het_models) == 0) {
   cat("No coastal-type subgroups had sufficient municipalities to estimate.\n")
+} else if (length(het_models) == 1) {
+  etable(het_models[[1]], headers = het_headers, se.below = TRUE)
+} else if (length(het_models) == 2) {
+  etable(het_models[[1]], het_models[[2]], headers = het_headers, se.below = TRUE)
+} else {
+  etable(het_models[[1]], het_models[[2]], het_models[[3]], headers = het_headers, se.below = TRUE)
 }
 
 # ── Instrument validity checks ────────────────────────────────
@@ -292,14 +298,17 @@ etable(
 )
 sink()
 
-if (length(het_models) > 0) {
+if (length(het_models) == 2) {
   sink(file.path(path_results, "regression_heterogeneity_latex.tex"))
-  do.call(etable, c(het_models, list(
-    headers = het_headers,
-    se.below = TRUE,
-    tex   = TRUE,
-    title = "Heterogeneity by Coastal Proximity, DR 2017--2025"
-  )))
+  etable(het_models[[1]], het_models[[2]],
+         headers = het_headers, se.below = TRUE, tex = TRUE,
+         title = "Heterogeneity by Coastal Proximity, DR 2017--2025")
+  sink()
+} else if (length(het_models) == 3) {
+  sink(file.path(path_results, "regression_heterogeneity_latex.tex"))
+  etable(het_models[[1]], het_models[[2]], het_models[[3]],
+         headers = het_headers, se.below = TRUE, tex = TRUE,
+         title = "Heterogeneity by Coastal Proximity, DR 2017--2025")
   sink()
 }
 
