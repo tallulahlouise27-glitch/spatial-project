@@ -114,7 +114,62 @@ iv_t3 <- feols(
   cluster = ~muni_fe
 )
 
-# ── Models 9–11: By coastal proximity ─────────────────────────
+# ── Model 9: Stacked IV with tertile interactions ─────────────
+# Single regression that formally tests whether the Sargassum effect
+# differs across income tertiles.
+#
+# Method: reshape panel to long format (3 rows per municipality-year,
+# one per tertile), then instrument AFAI and its interactions with
+# T2/T3 dummies using the Bartik instrument and its interactions.
+#
+# Coefficients:
+#   fit_afai_cov_annual = effect on T1 (base group, poorest third)
+#   fit_afai_x_t2       = how much SMALLER the effect is for T2 vs T1
+#   fit_afai_x_t3       = how much SMALLER the effect is for T3 vs T1
+#
+# If Sargassum hits the poor hardest, we expect:
+#   fit_afai_cov_annual < 0  (negative effect on T1)
+#   fit_afai_x_t2 > 0        (T2 less affected than T1)
+#   fit_afai_x_t3 > 0        (T3 even less affected)
+
+panel_long <- panel %>%
+  select(ID_MUNICIPIO, ANO, muni_fe, year_fe,
+         afai_cov_annual, z_bartik,
+         log_income_t1, log_income_t2, log_income_t3) %>%
+  pivot_longer(
+    cols      = c(log_income_t1, log_income_t2, log_income_t3),
+    names_to  = "tertile",
+    values_to = "log_income_tertile"
+  ) %>%
+  mutate(
+    tertile = factor(tertile,
+                     levels = c("log_income_t1", "log_income_t2", "log_income_t3"),
+                     labels = c("T1", "T2", "T3")),
+    is_t2 = as.integer(tertile == "T2"),
+    is_t3 = as.integer(tertile == "T3"),
+    # Interactions: AFAI × tertile dummy (T1 is base group)
+    afai_x_t2     = afai_cov_annual * is_t2,
+    afai_x_t3     = afai_cov_annual * is_t3,
+    # Instruments: Bartik × tertile dummy
+    z_bartik_x_t2 = z_bartik * is_t2,
+    z_bartik_x_t3 = z_bartik * is_t3,
+    # Municipality × tertile and year × tertile fixed effects
+    muni_tertile_fe = interaction(muni_fe, tertile),
+    year_tertile_fe = interaction(year_fe, tertile)
+  ) %>%
+  filter(!is.na(log_income_tertile))
+
+# Three endogenous variables, three instruments (exactly identified)
+iv_stacked <- feols(
+  log_income_tertile ~ 1 |
+    muni_tertile_fe + year_tertile_fe |
+    afai_cov_annual + afai_x_t2 + afai_x_t3 ~
+    z_bartik        + z_bartik_x_t2 + z_bartik_x_t3,
+  data    = panel_long,
+  cluster = ~ID_MUNICIPIO   # cluster at municipality, not municipality×tertile
+)
+
+# ── Models 10–12: By coastal proximity ────────────────────────
 # Tests whether the Sargassum effect is stronger for municipalities
 # with direct coastline vs near-coastal vs inland.
 
@@ -167,11 +222,20 @@ etable(
   se.below = TRUE
 )
 
-cat("\n--- Heterogeneity by income tertile ---\n")
+cat("\n--- Heterogeneity by income tertile (separate regressions) ---\n")
 etable(
   iv_t1, iv_t2, iv_t3,
   headers  = c("T1 (Bottom)", "T2 (Middle)", "T3 (Top)"),
   se.below = TRUE
+)
+
+cat("\n--- Stacked regression with tertile interactions ---\n")
+cat("Base group = T1. Interaction coefficients show difference from T1.\n")
+print(summary(iv_stacked))
+cat("\nWald test: are T2 and T3 effects significantly different from T1?\n")
+tryCatch(
+  print(wald(iv_stacked, "afai_x_t2|afai_x_t3")),
+  error = function(e) cat("Wald test not available:", conditionMessage(e), "\n")
 )
 
 cat("\n--- Heterogeneity by coastal proximity ---\n")
@@ -219,6 +283,15 @@ etable(
 )
 sink()
 
+sink(file.path(path_results, "regression_stacked_latex.tex"))
+etable(
+  iv_stacked,
+  se.below = TRUE,
+  tex      = TRUE,
+  title    = "Stacked IV: Differential Sargassum Effects by Income Tertile, DR 2017--2025"
+)
+sink()
+
 if (length(het_models) > 0) {
   sink(file.path(path_results, "regression_heterogeneity_latex.tex"))
   do.call(etable, c(het_models, list(
@@ -262,6 +335,41 @@ p <- ggplot(coef_data, aes(x = estimate, y = model)) +
 
 ggsave(file.path(path_figures, "coef_plot.png"), p, width = 7, height = 4, dpi = 150)
 cat("Coefficient plot saved to figures/coef_plot.png\n")
+
+# ── Tertile coefficient plot ──────────────────────────────────
+# Shows the three income-tertile IV estimates side by side.
+# If Sargassum hits the poor hardest, the T1 bar should be the
+# most negative and T3 closest to zero.
+tertile_coef <- data.frame(
+  group    = c("T1 (Bottom third)", "T2 (Middle third)", "T3 (Top third)"),
+  estimate = c(coef(iv_t1)["fit_afai_cov_annual"],
+               coef(iv_t2)["fit_afai_cov_annual"],
+               coef(iv_t3)["fit_afai_cov_annual"]),
+  se       = c(se(iv_t1)["fit_afai_cov_annual"],
+               se(iv_t2)["fit_afai_cov_annual"],
+               se(iv_t3)["fit_afai_cov_annual"])
+) %>%
+  mutate(
+    ci_lo = estimate - 1.96 * se,
+    ci_hi = estimate + 1.96 * se,
+    group = factor(group, levels = rev(group))
+  )
+
+p_tertile <- ggplot(tertile_coef, aes(x = estimate, y = group)) +
+  geom_vline(xintercept = 0, linetype = "dashed", colour = "grey50") +
+  geom_errorbarh(aes(xmin = ci_lo, xmax = ci_hi), height = 0.2) +
+  geom_point(size = 3) +
+  labs(
+    x = "Coefficient on Sargassum coastal coverage",
+    y = NULL,
+    title = "Sargassum Effect by Income Tertile",
+    subtitle = "IV estimates. Municipality × tertile and year × tertile fixed effects. 95% CIs."
+  ) +
+  theme_minimal()
+
+ggsave(file.path(path_figures, "coef_plot_tertile.png"),
+       p_tertile, width = 7, height = 3, dpi = 150)
+cat("Tertile coefficient plot saved to figures/coef_plot_tertile.png\n")
 
 cat("\n====== DONE ======\n")
 cat("Results saved to results/regression_main.txt\n")
