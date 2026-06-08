@@ -3,21 +3,21 @@
 \begin{tabular}{lccc}
    \tabularnewline \midrule \midrule
    Dependent Variables: & \multicolumn{2}{c}{log\_income} & tasa\_empleo\\
-                & OLS Income & IV Income & IV Employment \\   
-   Model:       & (1)        & (2)       & (3)\\  
+                       & OLS Income      & IV Income & IV Employment \\   
+   Model:              & (1)             & (2)       & (3)\\  
    \midrule
    \emph{Variables}\\
-   log\_chla    & 0.0279     & 0.1012    & 0.0147\\   
-                & (0.0333)   & (0.1159)  & (0.0219)\\   
+   afai\_cov\_annual   & -0.4235$^{***}$ & 0.3959    & -0.0225\\   
+                       & (0.1334)        & (0.8655)  & (0.2209)\\   
    \midrule
    \emph{Fixed-effects}\\
-   muni\_fe     & Yes        & Yes       & Yes\\  
-   year\_fe     & Yes        & Yes       & Yes\\  
+   muni\_fe            & Yes             & Yes       & Yes\\  
+   year\_fe            & Yes             & Yes       & Yes\\  
    \midrule
    \emph{Fit statistics}\\
-   Observations & 1,090      & 1,090     & 1,090\\  
-   R$^2$        & 0.69470    & 0.69488   & 0.41860\\  
-   Within R$^2$ & 0.00095    & 0.00153   & 0.00055\\  
+   Observations        & 897             & 897       & 897\\  
+   R$^2$               & 0.67987         & 0.67432   & 0.40707\\  
+   Within R$^2$        & 0.01730         & 0.00026   & $1.44\times 10^{-5}$\\   
    \midrule \midrule
    \multicolumn{4}{l}{\emph{Clustered (muni\_fe) standard-errors in parentheses}}\\
    \multicolumn{4}{l}{\emph{Signif. Codes: ***: 0.01, **: 0.05, *: 0.1}}\\

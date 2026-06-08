@@ -116,16 +116,22 @@ if (file.exists(out_coastal)) {
     joined <- joined[!nearshore_flag, ] %>% st_drop_geometry()
 
     # Aggregate to municipality × month
-    # afai_coverage: fraction of pixels exceeding the Sargassum threshold (0.001)
-    # This threshold separates genuine floating Sargassum mats from background
-    # ocean signal. Source: Wang & Hu (2016) AFAI methodology.
+    # Three complementary Sargassum measures:
+    #   afai_coverage  — fraction of pixels above the detection threshold (0–1)
+    #                    captures spatial extent: "how much of the coast has Sargassum?"
+    #   afai_sargassum — mean excess AFAI above threshold, pmax(AFAI - 0.001, 0)
+    #                    captures both extent AND density: "how much Sargassum overall?"
+    #                    zero when absent, higher = more/denser mats
+    #   afai_max       — peak AFAI value (useful for detecting episodic heavy events)
+    # Threshold 0.001 from Wang & Hu (2016) AFAI methodology.
     joined %>%
       group_by(municipio, provincia, year, month) %>%
       summarise(
-        afai_mean     = mean(AFAI, na.rm = TRUE),
-        afai_max      = max(AFAI,  na.rm = TRUE),
-        afai_coverage = mean(AFAI > 0.001, na.rm = TRUE),
-        n_pixels      = n(),
+        afai_mean      = mean(AFAI, na.rm = TRUE),
+        afai_max       = max(AFAI,  na.rm = TRUE),
+        afai_coverage  = mean(AFAI > 0.001,           na.rm = TRUE),
+        afai_sargassum = mean(pmax(AFAI - 0.001, 0),  na.rm = TRUE),
+        n_pixels       = n(),
         .groups = "drop"
       )
   }))
