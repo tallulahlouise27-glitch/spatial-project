@@ -60,7 +60,9 @@ encft <- encft_raw %>%
     ID_MUNICIPIO = as.integer(ID_MUNICIPIO),
     ingreso_total = coalesce(as.numeric(INGRESO_ASALARIADO), 0) +
                     coalesce(as.numeric(INGRESO_INDEPENDIENTES), 0),
-    es_pescador   = as.integer(!is.na(PESCA_NO_REMUN) & PESCA_NO_REMUN == 1)
+    # 311 = marine fishing, 312 = freshwater fishing (CIIU/ISIC codes)
+    # PESCA_NO_REMUN only captures unpaid subsistence fishing (near-zero) — use occupation code instead
+    es_pescador   = as.integer(as.numeric(RAMA_PRINCIPAL_COD) %in% c(311, 312))
   )
 
 # ── Aggregate to household × quarter level ───────────────────
