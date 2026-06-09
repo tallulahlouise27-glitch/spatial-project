@@ -101,15 +101,6 @@ iv_peak <- feols(
   cluster = ~muni_fe
 )
 
-# ── Model 5: Fishing municipalities only ──────────────────────
-fishing_muni <- panel %>%
-  filter(share_pesca > median(share_pesca, na.rm = TRUE))
-
-iv_fishing <- feols(
-  log_income ~ 1 | muni_fe + year_month_fe | afai_sargassum ~ z_bartik,
-  data    = fishing_muni,
-  cluster = ~muni_fe
-)
 
 # ── Models 6–8: By income tertile ────────────────────────────
 # Tests whether Sargassum hits poorer households harder.
@@ -236,8 +227,8 @@ print(summary(first_stage))
 
 cat("\n--- Main results ---\n")
 etable(
-  ols_income, iv_income, iv_employ, iv_peak, iv_fishing,
-  headers = c("OLS Income", "IV Income", "IV Employ", "IV Peak", "IV Fishing"),
+  ols_income, iv_income, iv_employ, iv_peak,
+  headers = c("OLS Income", "IV Income", "IV Employ", "IV Peak Season"),
   se.below = TRUE
 )
 
@@ -343,15 +334,13 @@ sink()
 
 # ── Coefficient plot ──────────────────────────────────────────
 coef_data <- data.frame(
-  model    = c("OLS", "IV (Main)", "IV (Peak\nSeason)", "IV (Fishing\nMunicipalities)"),
+  model    = c("OLS", "IV (Main)", "IV (Peak\nSeason)"),
   estimate = c(coef(ols_income)["afai_sargassum"],
                coef(iv_income)["fit_afai_sargassum"],
-               coef(iv_peak)["fit_afai_sargassum"],
-               coef(iv_fishing)["fit_afai_sargassum"]),
+               coef(iv_peak)["fit_afai_sargassum"]),
   se       = c(se(ols_income)["afai_sargassum"],
                se(iv_income)["fit_afai_sargassum"],
-               se(iv_peak)["fit_afai_sargassum"],
-               se(iv_fishing)["fit_afai_sargassum"])
+               se(iv_peak)["fit_afai_sargassum"])
 ) %>%
   mutate(
     ci_lo = estimate - 1.96 * se,
