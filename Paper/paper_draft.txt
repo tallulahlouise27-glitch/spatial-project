@@ -8,14 +8,14 @@ This paper estimates the effect of Sargassum seaweed inundation on
 household income and employment in the Dominican Republic using a
 monthly municipality-level panel from 2017 to 2025. Combining satellite
 data on Sargassum intensity with quarterly household survey data from
-100 municipalities, I find that Sargassum significantly reduces household
+86 municipalities, I find that Sargassum significantly reduces household
 income during peak bloom months (May–September), with an estimated
-effect of -73.90 log points (p < 0.01). Surprisingly, the effect is
+effect of -64.69 log points (p < 0.05). Surprisingly, the effect is
 largest in non-coastal municipalities, suggesting disruption to tourism
 supply chains extends well beyond the shoreline. Among income groups,
-the negative effect follows a monotonic gradient — largest for the
-poorest households — and becomes detectable for low-income earners
-when zero-income households are excluded from the analysis. Results are
+the negative effect is largest for the poorest households, and becomes
+detectable for the lowest-income earners when zero-income households
+are excluded from the analysis. Results are
 identified through municipality and year-by-month fixed effects, which
 control for time-invariant geographic differences and all common
 national shocks.
@@ -47,8 +47,8 @@ Sargassum intensity data constructed from NASA's MODIS-Aqua sensor
 using the Alternative Floating Algae Index (AFAI). The second is the
 Encuesta Nacional Continua de Fuerza de Trabajo (ENCFT), the Dominican
 Republic's quarterly household labour force and income survey. Merging
-these at the municipality-month level produces a panel of 10,263
-observations across 100 municipalities. I estimate the income effect
+these at the municipality-month level produces a panel of 9,089
+observations across 86 municipalities. I estimate the income effect
 of Sargassum using OLS regression with municipality and year-by-month
 fixed effects, which absorb permanent geographic differences and all
 shocks common to all municipalities in a given month.
@@ -124,7 +124,7 @@ values above this threshold indicate detectable Sargassum. This measure
 captures both the spatial coverage and density of Sargassum mats in
 the coastal waters adjacent to each municipality.
 
-Municipalities are classified as coastal (48 of 100 in the analysis
+Municipalities are classified as coastal (45 of 86 in the analysis
 sample) if their administrative boundaries directly touch the ocean
 shoreline. The Dominican Republic–Haiti land border is excluded from
 this classification to avoid incorrectly treating border municipalities
@@ -156,7 +156,7 @@ excludes these households and use it as a robustness check.
 
 I merge monthly satellite data with quarterly survey data by assigning
 each month the income observation from the survey quarter that contains
-it. The final panel contains 10,263 observations across 100
+it. The final panel contains 9,089 observations across 86
 municipalities and the years 2017–2025.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -219,27 +219,25 @@ analysis.
 5.1 Main Results
 
 Table 1 presents the main estimates. The full-year coefficient on
-Sargassum intensity is negative (-28.15) but statistically
-insignificant (p = 0.13), suggesting a negative relationship that is
-too noisy to distinguish from zero when averaged across all months
-including those when Sargassum is largely absent.
+Sargassum intensity is negative (-5.71) but statistically
+insignificant, suggesting no detectable average effect when averaged
+across all months including those when Sargassum is largely absent.
 
 The peak season result is markedly sharper. Restricting the sample to
 May–September, when Sargassum blooms are most intense, yields a
-coefficient of -73.90 (p < 0.01). A one-unit increase in mean excess
-AFAI during peak months is associated with a 73.90 log-point reduction
+coefficient of -64.69 (p < 0.05). A one-unit increase in mean excess
+AFAI during peak months is associated with a 64.69 log-point reduction
 in municipal household income. The contrast between the full-year and
-peak-season estimates — a roughly three-fold increase in magnitude —
-is consistent with Sargassum being the mechanism: the income loss
-materialises specifically in the months when blooms are present, not
-year-round.
+peak-season estimates is consistent with Sargassum being the mechanism:
+the income loss materialises specifically in the months when blooms are
+present, not year-round.
 
 5.2 Heterogeneity by Coastal Proximity
 
 Table 3 presents results for coastal and non-coastal municipalities
 separately. Over the full year, neither group shows a significant
 effect. During peak season, the significant effect is found in
-non-coastal municipalities (-80.08, p < 0.01), while coastal
+non-coastal municipalities (-70.87, p < 0.05), while coastal
 municipalities show a negative but statistically insignificant
 estimate (-58.95).
 
@@ -261,26 +259,26 @@ the sea.
 5.3 Heterogeneity by Income Tertile
 
 Table 2 presents results by income tertile. Full-year coefficients
-follow a monotonically decreasing pattern in absolute magnitude: bottom
-tertile (-144.87), middle tertile (-30.75, p < 0.05), top tertile
-(-12.20). This gradient is consistent with lower-income households
-having less ability to insure against environmental shocks through
-savings, credit access, or income diversification.
+follow the expected gradient in absolute magnitude: bottom tertile
+(-157.9), middle tertile (-20.62), top tertile (-11.04). This pattern
+is consistent with lower-income households having less ability to insure
+against environmental shocks through savings, credit access, or income
+diversification.
 
-Only the middle tertile reaches significance over the full year. The
-bottom tertile's coefficient, though large, is extremely imprecise
-(SE = 90.06). This occurs for a structural reason: approximately 5%
-of municipality-month observations in the bottom tertile group report
-zero household income. Log-transforming these observations produces an
-outcome of zero regardless of Sargassum intensity, which floors the
-dependent variable and inflates noise. The standard deviation of
-log income in the bottom tertile is 1.93 compared to 0.34 for the
-middle tertile, reflecting this problem directly.
+None of the three groups reach conventional significance over the full
+year. The bottom tertile's coefficient, though large, is extremely
+imprecise (SE = 115.7). This occurs for a structural reason:
+approximately 5% of municipality-month observations in the bottom
+tertile group report zero household income. Log-transforming these
+observations produces an outcome of zero regardless of Sargassum
+intensity, which floors the dependent variable and inflates noise. The
+standard deviation of log income in the bottom tertile is 1.93 compared
+to 0.34 for the middle tertile, reflecting this problem directly.
 
-During peak season (Table 2, columns 4–6), the gradient persists:
-bottom (-75.07), middle (-48.99, p < 0.01), top (-26.64). The middle
-tertile peak-season estimate is larger in absolute value than its
-full-year counterpart (-48.99 vs -30.75), consistent with the effect
+During peak season (Table 2, columns 4–6), all coefficients are
+negative: bottom (-117.6), middle (-41.86, p < 0.05), top (-48.76).
+The middle tertile peak-season estimate is larger in absolute value than
+its full-year counterpart (-41.86 vs -20.62), consistent with the effect
 being concentrated in bloom months.
 
 5.4 Robustness: Excluding Zero-Income Households
@@ -297,15 +295,13 @@ The results change in an informative way. Full-year coefficients for
 all three non-zero tertiles are negative but insignificant, reflecting
 that the effect remains hard to detect over non-peak months. During
 peak season, however, the bottom non-zero tertile produces a negative
-and significant coefficient (-48.69, p < 0.01), and the gradient is
-now monotonically decreasing: bottom (-48.69) > middle (-27.02) >
-top (-17.69). The significance of the bottom group in the non-zero
-sample — compared to its insignificance in the original sample —
-confirms that the zero-income floor was masking a real effect on
-low-income earners. The poorest workers do experience significant
-income losses during peak Sargassum months; it is simply not possible
-to detect this through the income measure for households that report
-no income at all.
+and significant coefficient (-45.86, p < 0.05). The significance of
+the bottom group in the non-zero sample — compared to its insignificance
+in the original sample — confirms that the zero-income floor was masking
+a real effect on low-income earners. The poorest workers do experience
+significant income losses during peak Sargassum months; it is simply not
+possible to detect this through the income measure for households that
+report no income at all.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
@@ -313,7 +309,7 @@ no income at all.
 
 This paper provides causal evidence that Sargassum inundation reduces
 household income in the Dominican Republic. The main finding is a
-peak-season income effect of -73.90 log points (p < 0.01), identified
+peak-season income effect of -64.69 log points (p < 0.05), identified
 through within-municipality, within-time variation in Sargassum
 intensity after controlling for municipality and year-by-month fixed
 effects.

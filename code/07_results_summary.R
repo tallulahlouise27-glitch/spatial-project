@@ -283,7 +283,7 @@ cat(
   "  - Tertile heterogeneity:  Wald p = 0.459\n\n",
   "The failure to reject does not mean the effects are identical — the point\n",
   "estimates follow the expected pattern in both cases. The tests lack power\n",
-  "because (a) the sample has only 100 municipalities and (b) the treatment\n",
+  "because (a) the sample has only 86 municipalities and (b) the treatment\n",
   "variable is noisy. These results should be interpreted as consistent with\n",
   "the hypothesised heterogeneity, but insufficient to confirm it statistically.\n",
   sep = ""

@@ -94,8 +94,8 @@ than by underlying geographic or economic differences.</p>
 <p>We do this by building a panel dataset — a dataset that tracks the same
 municipalities repeatedly over time, every month from 2017 to 2025 — and using
 statistical controls called fixed effects that remove the confounding factors
-described above. The result is a dataset with 10,263 municipality-month
-observations across 100 municipalities.</p>
+described above. The result is a dataset with 9,089 municipality-month
+observations across 86 municipalities.</p>
 
 <h2>2. Measuring Sargassum: The Satellite Data</h2>
 
@@ -168,10 +168,10 @@ outer boundary before classifying municipalities. This left only the genuine
 ocean coastline, and municipalities that touch only the Haiti border are
 correctly classified as non-coastal.</p>
 
-<p>After this correction, the analysis sample contains 48 coastal municipalities
-and 52 non-coastal municipalities. Before the correction, 59 municipalities
-were classified as coastal — the 11 difference were border municipalities that
-were incorrectly flagged.</p>
+<p>After this correction, the analysis sample contains 45 coastal municipalities
+and 41 non-coastal municipalities (86 total). Municipalities more than 20km
+from the ocean coastline are excluded from the analysis because their satellite
+pixels capture inland water bodies rather than ocean Sargassum.</p>
 
 <h2>4. The Household Survey Data</h2>
 
@@ -424,8 +424,8 @@ the months when Sargassum is present.</p>
 <p>We might expect the income effect to be larger in coastal municipalities,
 which face direct beach inundation, than in non-coastal municipalities, which
 experience Sargassum only indirectly through its effects on regional economic
-activity. To test this, we estimate equation (1) separately on the 48 coastal
-and 52 non-coastal municipalities.</p>
+activity. To test this, we estimate equation (1) separately on the 45 coastal
+and 41 non-coastal municipalities.</p>
 
 <p>Running separate regressions for each subgroup — rather than one pooled
 regression — allows the Sargassum effect to differ freely between the groups.

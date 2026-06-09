@@ -234,7 +234,7 @@ Neither formal interaction test rejects the null of equal effects:
 
 The failure to reject does not mean the effects are identical — the point
 estimates follow the expected pattern in both cases. The tests lack power
-because (a) the sample has only 100 municipalities and (b) the treatment
+because (a) the sample has only 86 municipalities and (b) the treatment
 variable is noisy. These results should be interpreted as consistent with
 the hypothesised heterogeneity, but insufficient to confirm it statistically.
 
