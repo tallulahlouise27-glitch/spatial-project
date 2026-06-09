@@ -2,22 +2,22 @@
 \centering
 \begin{tabular}{lccc}
    \tabularnewline \midrule \midrule
-   Dependent Variables: & \multicolumn{2}{c}{log\_income} & tasa\_empleo\\
-                       & OLS Income     & IV Income & IV Employment \\   
-   Model:              & (1)            & (2)       & (3)\\  
+   Dependent Variables: & log\_income  & tasa\_empleo  & log\_income\\   
+                        & Income       & Employment    & Peak Season (May--Sep) \\   
+   Model:               & (1)          & (2)           & (3)\\  
    \midrule
    \emph{Variables}\\
-   afai\_cov\_annual   & -0.3417$^{**}$ & 7.367     & 1.626\\   
-                       & (0.1470)       & (16.36)   & (3.595)\\   
+   afai\_sargassum      & -28.15       & -4.439        & -73.90$^{***}$\\   
+                        & (18.53)      & (3.937)       & (24.28)\\   
    \midrule
    \emph{Fixed-effects}\\
-   muni\_fe            & Yes            & Yes       & Yes\\  
-   year\_fe            & Yes            & Yes       & Yes\\  
+   muni\_fe             & Yes          & Yes           & Yes\\  
+   year\_month\_fe      & Yes          & Yes           & Yes\\  
    \midrule
    \emph{Fit statistics}\\
-   Observations        & 883            & 883       & 883\\  
-   R$^2$               & 0.67631        & 0.67393   & 0.41533\\  
-   Within R$^2$        & 0.00946        & 0.00218   & 0.00186\\  
+   Observations         & 10,263       & 10,263        & 4,344\\  
+   R$^2$                & 0.52230      & 0.30484       & 0.59279\\  
+   Within R$^2$         & 0.00069      & 0.00035       & 0.00553\\  
    \midrule \midrule
    \multicolumn{4}{l}{\emph{Clustered (muni\_fe) standard-errors in parentheses}}\\
    \multicolumn{4}{l}{\emph{Signif. Codes: ***: 0.01, **: 0.05, *: 0.1}}\\

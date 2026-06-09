@@ -1,16 +1,16 @@
-                ols_income  iv_income     iv_employ
-                OLS Income  IV Income IV Employment
-Dependent Var.: log_income log_income   tasa_empleo
-                                                   
-afai_cov_annual   -0.3417*      7.367        1.626 
-                  (0.1470)    (16.36)       (3.595)
-Fixed-Effects:  ---------- ----------   -----------
-muni_fe                Yes        Yes           Yes
-year_fe                Yes        Yes           Yes
-_______________ __________ __________   ___________
-S.E.: Clustered by: muni.. by: muni..   by: muni_fe
-Observations           883        883           883
-R2                 0.67631    0.67393       0.41533
-Within R2          0.00946    0.00218       0.00186
+                ols_income  ols_employ              ols_peak
+                    Income  Employment Peak Season (May-Sep)
+Dependent Var.: log_income tasa_empleo            log_income
+                                                            
+afai_sargassum     -28.15      -4.439               -73.90**
+                   (18.53)     (3.937)              (24.28) 
+Fixed-Effects:  ---------- -----------            ----------
+muni_fe                Yes         Yes                   Yes
+year_month_fe          Yes         Yes                   Yes
+_______________ __________ ___________            __________
+S.E.: Clustered by: muni.. by: muni_fe            by: muni..
+Observations        10,263      10,263                 4,344
+R2                 0.52230     0.30484               0.59279
+Within R2          0.00069     0.00035               0.00553
 ---
 Signif. codes: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
