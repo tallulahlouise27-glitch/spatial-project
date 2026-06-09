@@ -87,16 +87,16 @@ TABLE 3: Full-year results by coastal proximity
                    Coastal Not Coastal
 Dependent Var.: log_income  log_income
                                       
-afai_sargassum     -71.16      -14.97 
-                   (45.39)     (17.22)
+afai_sargassum     -28.84      -22.80 
+                   (49.17)     (17.15)
 Fixed-Effects:  ----------  ----------
 muni_fe                Yes         Yes
 year_month_fe          Yes         Yes
 _______________ __________  __________
 S.E.: Clustered by: muni..  by: muni..
-Observations         5,361       4,902
-R2                 0.47839     0.57898
-Within R2          0.00235     0.00031
+Observations         4,767       5,496
+R2                 0.46228     0.56486
+Within R2          0.00026     0.00073
 ---
 Signif. codes: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
@@ -116,16 +116,16 @@ TABLE 4: Peak season (May-Sep) results by coastal proximity
                    Coastal  Not Coastal
 Dependent Var.: log_income   log_income
                                        
-afai_sargassum     -76.30      -84.95**
-                   (53.37)     (26.10) 
+afai_sargassum     -58.95      -80.08**
+                   (61.19)     (25.53) 
 Fixed-Effects:  ----------   ----------
 muni_fe                Yes          Yes
 year_month_fe          Yes          Yes
 _______________ __________   __________
 S.E.: Clustered by: muni..   by: muni..
-Observations         2,273        2,071
-R2                 0.59707      0.59154
-Within R2          0.00371      0.00950
+Observations         2,025        2,319
+R2                 0.59963      0.58039
+Within R2          0.00185      0.00821
 ---
 Signif. codes: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
@@ -187,24 +187,24 @@ Base group = Coastal. afai_x_not_coastal = difference in effect for not-coastal.
                    ols_coas..
 Dependent Var.:    log_income
                              
-afai_sargassum        -74.56 
-                      (41.51)
-afai_x_not_coastal     64.04 
-                      (44.60)
+afai_sargassum        -39.97 
+                      (39.16)
+afai_x_not_coastal     13.95 
+                      (42.70)
 Fixed-Effects:     ----------
 muni_fe                   Yes
 year_month_fe             Yes
 __________________ __________
 S.E.: Clustered    by: muni..
 Observations           10,263
-R2                    0.52286
-Within R2             0.00186
+R2                    0.52232
+Within R2             0.00073
 ---
 Signif. codes: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 Wald test, H0: nullity of afai_x_not_coastal
- stat = 2.0622, p-value = 0.154144, on 1 and 99 DoF, VCOV: Clustered (muni_fe).
+ stat = 0.106661, p-value = 0.744668, on 1 and 99 DoF, VCOV: Clustered (muni_fe).
 Wald test (H0: no difference between coastal and not-coastal):
-  F = 2.062, p = 0.154
+  F = 0.107, p = 0.745
 
 6B. Tertile interaction test (full year)
 Base group = T1. afai_x_t2/t3 = difference in effect for T2/T3 vs T1.

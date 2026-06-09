@@ -37,10 +37,14 @@ dr_sf   <- st_as_sf(dr_gadm) %>%
   st_transform(4326)
 
 # ── Coastal classification (matches script 04 logic exactly) ──
-dr_sf_proj <- st_transform(dr_sf, 32619)
-coastline  <- st_union(dr_sf_proj) %>% st_boundary()
-coast_zone <- st_buffer(coastline, dist = 500)
-touches    <- lengths(st_intersects(dr_sf_proj, coast_zone)) > 0
+dr_sf_proj  <- st_transform(dr_sf, 32619)
+haiti_gadm  <- gadm(country = "HTI", level = 0, path = path_raw_sat)
+haiti_sf    <- st_as_sf(haiti_gadm) %>% st_transform(32619)
+haiti_buf   <- st_buffer(st_union(haiti_sf), dist = 2000)
+dr_boundary <- st_union(dr_sf_proj) %>% st_boundary()
+coastline   <- st_difference(dr_boundary, haiti_buf)
+coast_zone  <- st_buffer(coastline, dist = 500)
+touches     <- lengths(st_intersects(dr_sf_proj, coast_zone)) > 0
 
 dr_sf <- dr_sf %>%
   mutate(

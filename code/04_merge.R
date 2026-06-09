@@ -103,10 +103,18 @@ dr_sf   <- st_as_sf(dr_gadm) %>%
   select(municipio = NAME_2) %>%
   st_transform(32619)
 
-coastline     <- st_union(dr_sf) %>% st_boundary()
+# Ocean coastline only: subtract the Haiti land border from DR's outer boundary.
+# st_boundary() of the DR polygon includes both the ocean coast AND the Haiti
+# land border — municipalities along that border would be wrongly classified
+# as coastal without this correction.
+haiti_gadm  <- gadm(country = "HTI", level = 0, path = "data/raw/satellite/")
+haiti_sf    <- st_as_sf(haiti_gadm) %>% st_transform(32619)
+haiti_buf   <- st_buffer(st_union(haiti_sf), dist = 2000)
+dr_boundary <- st_union(dr_sf) %>% st_boundary()
+coastline   <- st_difference(dr_boundary, haiti_buf)
+
 coast_zone    <- st_buffer(coastline, dist = 500)
 touches_coast <- lengths(st_intersects(dr_sf, coast_zone)) > 0
-dist_m        <- as.numeric(st_distance(st_centroid(dr_sf), coastline))
 
 coastal_lookup <- dr_sf %>%
   st_drop_geometry() %>%
@@ -137,7 +145,7 @@ sat_monthly <- sat_coastal %>%
 
 panel <- sat_monthly %>%
   left_join(
-    encft_q_match %>% mutate(TRIMESTRE = as.integer(TRIMESTRE)),
+    encft_q_match %>% mutate(TRIMESTRE = as.integer(TRIMESTRE) %% 10),
     by = c("muni_key", "year" = "ANO", "quarter" = "TRIMESTRE")
   ) %>%
   left_join(sat_instr,    by = c("year", "month")) %>%
