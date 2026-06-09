@@ -187,8 +187,86 @@ cat("====== AFAI SATELLITE SUMMARY ======\n")
 cat("Municipality-year-month rows:", nrow(muni_afai), "\n")
 cat("Municipalities with data:    ", n_distinct(muni_afai$municipio), "\n")
 cat("Years:                       ", paste(sort(unique(muni_afai$year)), collapse = ", "), "\n")
-cat("Mean AFAI (coastal):         ", round(mean(muni_afai$afai_mean,     na.rm=TRUE), 5), "\n")
-cat("Mean Sargassum coverage:     ", round(mean(muni_afai$afai_coverage, na.rm=TRUE), 3), "(fraction of pixels)\n")
-cat("\nInstrument (open-ocean, first 24 rows):\n")
-print(head(instrument[, c("year", "month", "afai_ocean_mean", "afai_ocean_coverage")], 24))
-cat("====================================\n")
+cat("Mean AFAI (coastal):         ", round(mean(muni_afai$afai_mean,      na.rm=TRUE), 5), "\n")
+cat("Mean Sargassum intensity:    ", round(mean(muni_afai$afai_sargassum, na.rm=TRUE), 6), "\n")
+cat("Mean Sargassum coverage:     ", round(mean(muni_afai$afai_coverage,  na.rm=TRUE), 3), "(fraction of pixels)\n")
+cat("====================================\n\n")
+
+# ── Diagnostic 1: Seasonal pattern ────────────────────────────
+# Sargassum in the Caribbean peaks May–September.
+# afai_sargassum should be clearly higher in those months.
+# A flat seasonal profile would indicate the measure is not
+# capturing Sargassum but some other factor (e.g. algal noise).
+
+cat("====== DIAGNOSTIC 1: SEASONAL PATTERN ======\n")
+cat("Mean afai_sargassum by month (averaged across all years and municipalities)\n")
+cat("Sargassum should peak May-Sep (months 5-9) and be near zero Jan-Feb\n\n")
+
+seasonal <- muni_afai %>%
+  group_by(month) %>%
+  summarise(
+    mean_sargassum = mean(afai_sargassum, na.rm = TRUE),
+    mean_coverage  = mean(afai_coverage,  na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    month_name = month.abb[month],
+    peak_flag  = ifelse(month %in% 5:9, "<<< PEAK SEASON", "")
+  )
+
+print(seasonal[, c("month_name", "mean_sargassum", "mean_coverage", "peak_flag")],
+      row.names = FALSE)
+
+peak_mean    <- mean(seasonal$mean_sargassum[seasonal$month %in% 5:9])
+offpeak_mean <- mean(seasonal$mean_sargassum[!seasonal$month %in% 5:9])
+cat(sprintf("\nPeak season mean: %.6f  |  Off-peak mean: %.6f  |  Ratio: %.1fx\n",
+            peak_mean, offpeak_mean, peak_mean / offpeak_mean))
+if (peak_mean > offpeak_mean * 1.5) {
+  cat("PASS: Peak season is at least 1.5x higher than off-peak — seasonal signal present.\n")
+} else {
+  cat("WARNING: Weak seasonal signal. Peak is less than 1.5x off-peak — check for contamination.\n")
+}
+
+# ── Diagnostic 2: Known spike years ───────────────────────────
+# Documented large Sargassum events from satellite literature and
+# NOAA AOML ocean data (visible in our instrument data):
+#   2018: Record year (March 2018 ocean coverage 0.065 — all-time high at the time)
+#   2021: Sustained bloom Apr–Aug (ocean coverage ~0.031–0.041)
+#   2022: Strong summer bloom (June 2022 ocean coverage 0.050)
+#   2023: Early-onset event (March 2023 ocean coverage 0.063)
+#   2025: All-time record (July 2025 ocean coverage 0.092, 41% above 2018 peak)
+# Low year: 2017 (ocean coverage never above 0.012), 2024 (max 0.025)
+#
+# Our coastal afai_sargassum should reflect these patterns:
+# 2018, 2021, 2022, 2023, 2025 >> 2017, 2024
+
+cat("\n====== DIAGNOSTIC 2: KNOWN SPIKE YEARS ======\n")
+cat("Comparing annual mean afai_sargassum against documented Sargassum events\n\n")
+
+annual_intensity <- muni_afai %>%
+  group_by(year) %>%
+  summarise(
+    mean_sargassum = mean(afai_sargassum, na.rm = TRUE),
+    peak_sargassum = mean(afai_sargassum[month %in% 5:9], na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  mutate(
+    expected = case_when(
+      year %in% c(2018, 2021, 2022, 2023, 2025) ~ "HIGH (documented spike)",
+      year %in% c(2017, 2024)                    ~ "LOW  (documented quiet)",
+      TRUE                                        ~ "moderate"
+    )
+  )
+
+print(annual_intensity, row.names = FALSE)
+
+high_mean <- mean(annual_intensity$mean_sargassum[annual_intensity$year %in% c(2018,2021,2022,2023,2025)])
+low_mean  <- mean(annual_intensity$mean_sargassum[annual_intensity$year %in% c(2017,2024)])
+cat(sprintf("\nMean for spike years (2018/21/22/23/25): %.6f\n", high_mean))
+cat(sprintf("Mean for quiet years (2017/24):          %.6f\n", low_mean))
+if (high_mean > low_mean * 1.3) {
+  cat("PASS: Spike years are at least 1.3x higher than quiet years.\n")
+} else {
+  cat("WARNING: Spike years not clearly higher than quiet years — measure may not be tracking real events.\n")
+}
+cat("=============================================\n")
