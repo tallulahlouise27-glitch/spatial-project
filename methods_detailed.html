@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Methods — Detailed Explanation</title>
+<style>
+  body {
+    font-family: "Times New Roman", Times, serif;
+    font-size: 12pt;
+    line-height: 1.9;
+    max-width: 750px;
+    margin: 60px auto;
+    padding: 0 30px;
+    color: #000;
+  }
+  h1 {
+    font-size: 15pt;
+    font-weight: bold;
+    text-align: center;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+  h2 {
+    font-size: 13pt;
+    font-weight: bold;
+    margin-top: 40px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 4px;
+  }
+  h3 {
+    font-size: 12pt;
+    font-weight: bold;
+    font-style: italic;
+    margin-top: 24px;
+    margin-bottom: 6px;
+  }
+  p {
+    margin: 0 0 14px 0;
+    text-align: justify;
+  }
+  .equation {
+    margin: 18px 0 6px 50px;
+    font-style: italic;
+  }
+  .eq-number {
+    float: right;
+    font-style: normal;
+    margin-right: 40px;
+  }
+  .where {
+    margin: 4px 0 18px 70px;
+    font-size: 11pt;
+    line-height: 1.7;
+  }
+  .callout {
+    background: #f7f7f7;
+    border-left: 3px solid #999;
+    padding: 10px 16px;
+    margin: 18px 0;
+    font-size: 11pt;
+    line-height: 1.7;
+  }
+  hr { border: none; border-top: 1px solid #ccc; margin: 40px 0; }
+</style>
+</head>
+<body>
+
+<h1>Methods — Detailed Explanation</h1>
+<p style="text-align:center; font-style:italic; font-size:11pt;">
+Sargassum &amp; Household Welfare in the Dominican Republic
+</p>
+
+<hr>
+
+<h2>1. Overview of the Research Design</h2>
+
+<p>The central question is: does Sargassum seaweed make households in the
+Dominican Republic poorer? To answer this, we need two things — a measure of
+how much Sargassum was present in a given place at a given time, and a measure
+of household income in that place at that time. We then ask whether the months
+and places with more Sargassum also tend to have lower household income, after
+accounting for all the other reasons why income might vary.</p>
+
+<p>The core challenge is that Sargassum does not arrive randomly. It tends to
+hit certain parts of the coastline more than others, and it arrives more in
+some years than others. If those places were already poorer, or if those years
+happened to coincide with other economic problems, a simple comparison of
+high-Sargassum and low-Sargassum municipalities would give a misleading answer.
+Our empirical strategy is designed to isolate the specific variation in
+Sargassum intensity that is most credibly caused by the algae itself, rather
+than by underlying geographic or economic differences.</p>
+
+<p>We do this by building a panel dataset — a dataset that tracks the same
+municipalities repeatedly over time, every month from 2017 to 2025 — and using
+statistical controls called fixed effects that remove the confounding factors
+described above. The result is a dataset with 10,263 municipality-month
+observations across 100 municipalities.</p>
+
+<h2>2. Measuring Sargassum: The Satellite Data</h2>
+
+<h3>2.1 What the Satellite Measures</h3>
+
+<p>We measure Sargassum using satellite imagery from NASA's MODIS-Aqua sensor,
+downloaded from NASA's ERDDAP data platform. MODIS-Aqua is a satellite that
+passes over the Earth daily and captures detailed images of the ocean surface.
+We use a derived measure called the Alternative Floating Algae Index (AFAI),
+which is a specific combination of light wavelengths that detects floating
+vegetation — including Sargassum — at the ocean surface. When the AFAI value
+for a pixel is elevated, it indicates that floating algae are present in that
+patch of ocean.</p>
+
+<p>The satellite data covers the waters within 20 kilometres of the Dominican
+coastline, at a spatial resolution of roughly 4 kilometres per pixel. We
+download monthly data, meaning each observation represents the average
+conditions across all usable satellite passes in that calendar month.</p>
+
+<h3>2.2 Constructing the Sargassum Intensity Variable</h3>
+
+<p>Raw AFAI values include some background signal even in the absence of
+Sargassum — essentially, the ocean surface produces a small amount of noise
+in the sensor. To focus on actual Sargassum, we subtract a baseline threshold
+of 0.001 and set any values below this to zero. The resulting variable,
+which we call <em>afai_sargassum</em>, is computed as:</p>
+
+<div class="equation">
+  afai_sargassum = mean( max(AFAI &minus; 0.001, 0) )
+  <span class="eq-number">&nbsp;</span>
+</div>
+<div style="clear:both"></div>
+
+<p>This gives us a single number for each municipality-month that captures
+both how widely Sargassum was spread (coverage) and how dense the mats were
+(intensity). A value of zero means no detectable Sargassum was present; a
+larger value means more Sargassum, either covering more ocean pixels or forming
+thicker mats, or both.</p>
+
+<h3>2.3 Assigning Sargassum to Municipalities</h3>
+
+<p>The satellite data gives us measurements at the pixel level across the ocean.
+We need to assign these to municipalities — administrative units on land — so
+that we can match them to the household survey data. We do this differently
+depending on whether a municipality is coastal or not.</p>
+
+<p>For <strong>coastal municipalities</strong> — those whose administrative
+boundary directly touches the ocean shoreline — we take the average AFAI value
+across all ocean pixels within 20km of that municipality's coastline. This
+directly measures the Sargassum in the water immediately adjacent to the shore.</p>
+
+<p>For <strong>non-coastal municipalities</strong> — those that do not border
+the sea — we use the same 20km buffer approach, but the relevant pixels are
+further offshore. This gives a measure of regional Sargassum conditions in the
+surrounding area rather than direct shoreline exposure.</p>
+
+<h2>3. Classifying Municipalities as Coastal or Non-Coastal</h2>
+
+<p>We classify each municipality based on whether its boundary directly touches
+the ocean coastline. This sounds straightforward, but one complication arose:
+the Dominican Republic shares a land border with Haiti to the west. When we
+drew the outer boundary of the Dominican Republic, that boundary included both
+the ocean coastline and the Haiti land border. If we had used the full outer
+boundary, municipalities along the Haiti border would have been incorrectly
+classified as coastal.</p>
+
+<p>To fix this, we downloaded the administrative boundary of Haiti, created a
+small 2km buffer around it, and subtracted it from the Dominican Republic's
+outer boundary before classifying municipalities. This left only the genuine
+ocean coastline, and municipalities that touch only the Haiti border are
+correctly classified as non-coastal.</p>
+
+<p>After this correction, the analysis sample contains 48 coastal municipalities
+and 52 non-coastal municipalities. Before the correction, 59 municipalities
+were classified as coastal — the 11 difference were border municipalities that
+were incorrectly flagged.</p>
+
+<h2>4. The Household Survey Data</h2>
+
+<h3>4.1 What the ENCFT Measures</h3>
+
+<p>Household income and employment data come from the Encuesta Nacional Continua
+de Fuerza de Trabajo (ENCFT), the Dominican Republic's national labour force and
+income survey. The ENCFT is conducted quarterly — four times per year — and is
+designed to be statistically representative at the level of individual
+municipalities within each quarter. It collects information on each household
+member's employment status, wages, and self-employment income.</p>
+
+<p>We use ENCFT data from 2016 to 2025, covering up to 143 municipalities.
+For each municipality in each quarter, we compute the average household income
+(weighted by each household's expansion factor, which adjusts for how many
+real-world households each surveyed household represents).</p>
+
+<h3>4.2 Why We Use Log Income</h3>
+
+<p>Rather than using income in raw Dominican pesos (RD$), we use the natural
+logarithm of income. There are two reasons for this. First, income distributions
+are typically highly skewed — a small number of very high-income households can
+distort averages. Taking the log compresses this skew and makes the variable
+better behaved statistically. Second, using log income means that regression
+coefficients can be interpreted as percentage or log-point changes, which are
+more meaningful than raw peso changes when comparing across municipalities with
+very different baseline income levels.</p>
+
+<h3>4.3 Matching Quarterly Survey Data to Monthly Satellite Data</h3>
+
+<p>The ENCFT is collected quarterly, but our satellite data is monthly. This
+creates a mismatch: we have Sargassum measurements for every individual month,
+but income measurements only four times per year. We resolve this by assigning
+the same income figure to all three months within a quarter. For example, if a
+municipality's Q2 (April–June) income was RD$8,000, we assign RD$8,000 to
+April, May, and June of that year.</p>
+
+<p>This approach is valid because the ENCFT is designed to measure income at the
+quarterly level — it is the appropriate temporal unit for that data. The
+year-by-month fixed effects in our regression (described below) account for
+the fact that income does not actually vary within quarters in our data, so
+this mechanical feature does not bias the estimates.</p>
+
+<h2>5. Income Tertiles</h2>
+
+<h3>5.1 How Tertiles Are Defined</h3>
+
+<p>Rather than using only average household income, we also test whether
+Sargassum affects different income groups differently. To do this, we divide
+households into three groups — or <em>tertiles</em> — based on their position
+in the national income distribution.</p>
+
+<p>Each year, we rank all surveyed households in the Dominican Republic by their
+per-capita income (total household income divided by the number of household
+members). We then split this ranked list into three equal groups:</p>
+
+<ul style="margin: 0 0 14px 0; line-height: 1.9;">
+  <li><strong>Bottom tertile</strong>: the poorest third of households nationally</li>
+  <li><strong>Middle tertile</strong>: the middle third</li>
+  <li><strong>Top tertile</strong>: the richest third</li>
+</ul>
+
+<p>These cutoff points are recalculated each year to account for changes in the
+overall income distribution over time. For example, in 2024, a household needed
+per-capita income above RD$12,000 per month to be in the top tertile; by
+contrast, the same threshold was only RD$7,000 in 2017.</p>
+
+<p>For each municipality-quarter, we then compute the average income separately
+for the households in each tertile group. This gives us three income series
+per municipality — one for each income group — which we use as separate
+dependent variables in the regression.</p>
+
+<h3>5.2 The Zero-Income Problem in the Bottom Tertile</h3>
+
+<p>A structural problem arises with the bottom tertile. Approximately 5% of
+municipality-month observations in the bottom group report an average household
+income of zero. When we take the logarithm of zero, the result is undefined —
+mathematically, you cannot take the log of zero. In practice, we use
+log(income + 1) to handle this, which means zero-income observations produce
+an outcome of exactly zero in the log-transformed variable.</p>
+
+<p>The problem is that these zero-income observations cannot reflect a Sargassum
+effect, because the income is already at its floor regardless of how much
+Sargassum was present. This adds noise to the bottom tertile regression and
+inflates the standard error, making it much harder to detect a real effect
+even if one exists. Concretely, the standard deviation of log income in the
+bottom tertile is 1.93 — more than five times larger than the 0.34 for the
+middle tertile — precisely because of these zero-income observations pulling
+the distribution around.</p>
+
+<h3>5.3 The Non-Zero Tertile Robustness Check</h3>
+
+<p>To address this, we construct a second set of tertile income measures that
+excludes households reporting zero income before computing the tertile
+boundaries. Roughly 17.6% of all surveyed households — about one in six —
+report zero income and are excluded from this analysis.</p>
+
+<p>The key difference is that the tertile cutoffs are recomputed on the
+remaining positive-income sample. This means the "bottom" group in the
+non-zero analysis is not the same as the original bottom tertile — it is the
+bottom third of households who actually earn something. The non-zero bottom
+tertile therefore represents the lowest-earning workers in the country, rather
+than a mixture of low earners and non-earners. For example, the bottom/middle
+income boundary rises from RD$5,000 to RD$7,000 per capita per month in 2024
+when zero-income households are excluded.</p>
+
+<p>We run the same regressions on this non-zero sample and report the results
+alongside the original tertile results. If the original bottom-tertile
+coefficient was being suppressed by zero-income noise, we would expect the
+non-zero bottom tertile to produce a more negative and more statistically
+significant result.</p>
+
+<h2>6. The Regression Model</h2>
+
+<h3>6.1 The Basic Idea</h3>
+
+<p>The core of our empirical strategy is a regression that asks: within a given
+municipality, in the months when there is more Sargassum than usual, is income
+lower than usual for that municipality? And within a given calendar month and
+year, do municipalities with more Sargassum than other municipalities in that
+same month have lower income?</p>
+
+<p>The reason we focus on this specific type of variation — rather than simply
+comparing high-Sargassum and low-Sargassum places — is that municipalities that
+have historically had more Sargassum might differ from other municipalities in
+many ways beyond Sargassum: they might be poorer to begin with, or more remote,
+or more dependent on fishing. If we compared them directly, we would be
+conflating the effect of Sargassum with all of these pre-existing differences.
+Fixed effects let us strip out these differences.</p>
+
+<h3>6.2 Municipality Fixed Effects</h3>
+
+<p>A municipality fixed effect is a statistical control that absorbs every
+characteristic of a municipality that does not change over time. Think of it as
+giving each municipality its own intercept in the regression — its own baseline
+level of income. This means that when we estimate the Sargassum coefficient, we
+are comparing a municipality to itself across different months, not comparing
+one municipality to another.</p>
+
+<p>Municipality fixed effects control for things like: geographic location,
+baseline wealth, proximity to major cities, historical dependence on fishing
+or tourism, infrastructure quality, and any other stable feature of a place.
+After removing these, any remaining association between Sargassum and income
+reflects within-municipality variation over time, not permanent differences
+between places.</p>
+
+<h3>6.3 Year-by-Month Fixed Effects</h3>
+
+<p>A year-by-month fixed effect absorbs every shock that affects all
+municipalities at the same time in the same calendar month of the same year.
+For example, if the Dominican economy experienced a national recession in
+mid-2020 that reduced income everywhere simultaneously, that shock would be
+captured by the year-by-month fixed effect for each month in 2020. Similarly,
+Sargassum itself has a seasonal pattern — it tends to be higher in May through
+September every year — and this common seasonal pattern is absorbed by the
+year-by-month fixed effects.</p>
+
+<p>After removing both municipality fixed effects and year-by-month fixed
+effects, the only variation left to identify the Sargassum coefficient is
+deviations from each municipality's own average in each specific month and year.
+In other words: did this particular municipality have more Sargassum than its
+own typical level for this time of year, and if so, was its income lower than
+its own typical level for this time of year?</p>
+
+<h3>6.4 The Main Regression Equation</h3>
+
+<p>The main estimating equation is:</p>
+
+<div class="equation">
+  log(income<sub>it</sub>) = &beta; &middot; AFAI<sub>it</sub> + &alpha;<sub>i</sub> + &gamma;<sub>t</sub> + &epsilon;<sub>it</sub>
+  <span class="eq-number">(1)</span>
+</div>
+<div style="clear:both"></div>
+
+<div class="where">
+  where:<br>
+  &nbsp;&nbsp;<em>i</em> = municipality<br>
+  &nbsp;&nbsp;<em>t</em> = year &times; month (e.g. "June 2021")<br>
+  &nbsp;&nbsp;AFAI<sub>it</sub> = Sargassum intensity in municipality <em>i</em> in month <em>t</em><br>
+  &nbsp;&nbsp;&alpha;<sub>i</sub> = municipality fixed effect (one per municipality)<br>
+  &nbsp;&nbsp;&gamma;<sub>t</sub> = year-by-month fixed effect (one per calendar month per year)<br>
+  &nbsp;&nbsp;&beta; = the coefficient of interest: the income effect of Sargassum<br>
+  &nbsp;&nbsp;&epsilon;<sub>it</sub> = the residual (everything not explained by the model)
+</div>
+
+<p>The coefficient &beta; tells us: for a one-unit increase in Sargassum
+intensity (AFAI), how much does log household income change, within the same
+municipality over time and controlling for common month-year shocks? If
+&beta; is negative and statistically significant, it means more Sargassum is
+associated with lower income in a way that we can distinguish from random noise.</p>
+
+<p>Standard errors — the measure of statistical uncertainty around &beta; — are
+clustered at the municipality level. This accounts for the fact that income and
+Sargassum within a municipality are likely correlated across months (a
+municipality that has a good year tends to have good months throughout), so
+treating each month as fully independent would understate our uncertainty.</p>
+
+<h3>6.5 Why This Is More Credible Than a Simple Correlation</h3>
+
+<p>A simple correlation between Sargassum and income — without any fixed effects
+— would be difficult to interpret because of the confounding factors described
+above. Our fixed effects approach is stronger because it controls for the two
+most obvious sources of confounding: permanent differences between municipalities,
+and time trends that affect the whole country at once.</p>
+
+<p>What remains as a potential concern is a <em>local, time-varying</em>
+confounder — a shock specific to one municipality in one month that
+simultaneously affects both Sargassum and income. The most plausible example
+would be a hurricane hitting a specific municipality, damaging economic
+activity and possibly also stirring up ocean conditions. We cannot formally
+rule this out, but it is a more demanding requirement than the confounders
+that fixed effects already address.</p>
+
+<div class="callout">
+<strong>In plain terms:</strong> We are not just asking "are places with more
+Sargassum poorer?" (which could reflect many things unrelated to Sargassum).
+We are asking "when a specific municipality gets more Sargassum than it usually
+does in that month, does its income fall?" This is a much more targeted
+question, and one where Sargassum itself is the most plausible explanation
+for any systematic pattern.
+</div>
+
+<h2>7. Subgroup Analyses</h2>
+
+<h3>7.1 Peak Season Analysis</h3>
+
+<p>Sargassum blooms are seasonal: they typically arrive and intensify between
+May and September, driven by ocean current patterns and temperature. If
+Sargassum is genuinely reducing income, we would expect the effect to be
+stronger during these peak months when Sargassum is actually present, and
+weaker or absent during off-peak months when it largely is not.</p>
+
+<p>To test this, we estimate equation (1) on a restricted subsample that
+includes only months 5 through 9 (May–September):</p>
+
+<div class="equation">
+  log(income<sub>it</sub>) = &beta;<sub>peak</sub> &middot; AFAI<sub>it</sub> + &alpha;<sub>i</sub> + &gamma;<sub>t</sub> + &epsilon;<sub>it</sub>
+  <span class="eq-number">(2)</span>
+</div>
+<div style="clear:both"></div>
+
+<p>The peak-season coefficient &beta;<sub>peak</sub> can then be compared to the
+full-year coefficient &beta; from equation (1). If &beta;<sub>peak</sub> is
+substantially larger in magnitude than &beta;, this provides supporting evidence
+that Sargassum is the mechanism: the income effect is concentrated exactly in
+the months when Sargassum is present.</p>
+
+<h3>7.2 Coastal vs. Non-Coastal Analysis</h3>
+
+<p>We might expect the income effect to be larger in coastal municipalities,
+which face direct beach inundation, than in non-coastal municipalities, which
+experience Sargassum only indirectly through its effects on regional economic
+activity. To test this, we estimate equation (1) separately on the 48 coastal
+and 52 non-coastal municipalities.</p>
+
+<p>Running separate regressions for each subgroup — rather than one pooled
+regression — allows the Sargassum effect to differ freely between the groups.
+We report both the full-year and peak-season versions for each group (equations
+(1) and (2) estimated on each subsample).</p>
+
+<h3>7.3 Income Tertile Analysis</h3>
+
+<p>To test whether poorer households are more affected than richer ones, we
+replace the main dependent variable (average municipal log income) with the
+average log income of households in each tertile group separately. The
+estimating equation becomes:</p>
+
+<div class="equation">
+  log(income<sub>Tk,it</sub>) = &beta;<sub>k</sub> &middot; AFAI<sub>it</sub> + &alpha;<sub>i</sub> + &gamma;<sub>t</sub> + &epsilon;<sub>it</sub>
+  <span class="eq-number">(3)</span>
+</div>
+<div style="clear:both"></div>
+
+<div class="where">
+  where <em>k</em> &isin; {bottom, middle, top}
+</div>
+
+<p>We estimate this equation separately for each tertile group, giving us three
+coefficients &beta;<sub>bottom</sub>, &beta;<sub>middle</sub>, and
+&beta;<sub>top</sub>. The prediction from economic theory is that
+|&beta;<sub>bottom</sub>| &gt; |&beta;<sub>middle</sub>| &gt; |&beta;<sub>top</sub>|
+— that is, the income loss is largest for the poorest households and smallest
+for the richest — because poorer households have fewer savings and less access
+to credit to buffer environmental shocks.</p>
+
+<p>We estimate equation (3) for both the full year and the peak season, and for
+both the original tertile sample (including zero-income households) and the
+non-zero tertile sample (excluding them).</p>
+
+<h2>8. What the Results Tell Us and What They Do Not</h2>
+
+<p>Our results tell us that there is a systematic, negative association between
+Sargassum intensity and household income in Dominican municipalities, concentrated
+in peak bloom months, that cannot be explained by permanent geographic differences
+between places or by shocks common to all municipalities at the same time. This
+is consistent with Sargassum causing income losses — particularly through its
+effect on tourism demand — but it is not formal proof of causation.</p>
+
+<p>What the results do not tell us is the precise mechanism through which income
+falls. We cannot observe whether the effect operates through fewer tourists
+visiting beaches, lower revenues in hotels and restaurants, reduced fishing
+access, or some combination of these channels. The finding that the effect is
+larger in non-coastal municipalities is consistent with a supply chain story
+— that disruption to beach tourism ripples inland through the regional economy
+— but we cannot directly confirm this from the data we have.</p>
+
+<p>The results also do not tell us about the impact on the 17.6% of households
+that report zero income. By construction, income-based measures cannot detect
+harm to households that have no formal income to lose. These households may
+well be among the most affected — through loss of informal earnings, food
+security, or health — but measuring those outcomes would require different data
+than we have here.</p>
+
+</body>
+</html>
