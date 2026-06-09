@@ -182,11 +182,10 @@ iv_stacked <- feols(
   cluster = ~ID_MUNICIPIO   # cluster at municipality, not municipality×tertile
 )
 
-# ── Models 10–12: By coastal proximity ────────────────────────
-# Tests whether the Sargassum effect is stronger for municipalities
-# with direct coastline vs near-coastal vs inland.
+# ── Models 10–11: By coastal proximity ───────────────────────
+# Two categories: coastal (direct shoreline) vs not_coastal (all others).
+# Tests whether the Sargassum effect is concentrated in coastal municipalities.
 
-# Check sample sizes before running — small groups produce unreliable results
 MIN_MUNICIPALITIES <- 10
 coastal_counts <- panel %>%
   group_by(coastal_type) %>%
@@ -194,13 +193,6 @@ coastal_counts <- panel %>%
 
 cat("\nSample size by coastal type:\n")
 print(coastal_counts)
-
-small_groups <- coastal_counts %>% filter(n_munis < MIN_MUNICIPALITIES)
-if (nrow(small_groups) > 0) {
-  cat("\nWARNING: the following groups have fewer than", MIN_MUNICIPALITIES,
-      "municipalities — IV estimates will be unreliable:\n")
-  print(small_groups$coastal_type)
-}
 
 safe_iv <- function(type, data) {
   sub <- filter(data, coastal_type == type)
@@ -213,9 +205,8 @@ safe_iv <- function(type, data) {
         data = sub, cluster = ~muni_fe)
 }
 
-iv_coastal      <- safe_iv("coastal",      panel)
-iv_near_coastal <- safe_iv("near_coastal", panel)
-iv_inland       <- safe_iv("inland",       panel)
+iv_coastal     <- safe_iv("coastal",     panel)
+iv_not_coastal <- safe_iv("not_coastal", panel)
 
 # ── Print results ─────────────────────────────────────────────
 cat("====== REGRESSION RESULTS ======\n\n")
@@ -252,9 +243,9 @@ tryCatch(
 )
 
 cat("\n--- Heterogeneity by coastal proximity ---\n")
-het_models  <- Filter(Negate(is.null), list(iv_coastal, iv_near_coastal, iv_inland))
-het_headers <- c("Coastal", "Near-Coastal", "Inland")[
-  !c(is.null(iv_coastal), is.null(iv_near_coastal), is.null(iv_inland))
+het_models  <- Filter(Negate(is.null), list(iv_coastal, iv_not_coastal))
+het_headers <- c("Coastal", "Not Coastal")[
+  !c(is.null(iv_coastal), is.null(iv_not_coastal))
 ]
 if (length(het_models) == 0) {
   cat("No coastal-type subgroups had sufficient municipalities to estimate.\n")
@@ -311,17 +302,11 @@ etable(
 )
 sink()
 
-if (length(het_models) == 2) {
+if (length(het_models) >= 1) {
   sink(file.path(path_results, "regression_heterogeneity_latex.tex"))
-  etable(het_models[[1]], het_models[[2]],
-         headers = het_headers, se.below = TRUE, tex = TRUE,
-         title = "Heterogeneity by Coastal Proximity, DR 2017--2025")
-  sink()
-} else if (length(het_models) == 3) {
-  sink(file.path(path_results, "regression_heterogeneity_latex.tex"))
-  etable(het_models[[1]], het_models[[2]], het_models[[3]],
-         headers = het_headers, se.below = TRUE, tex = TRUE,
-         title = "Heterogeneity by Coastal Proximity, DR 2017--2025")
+  do.call(etable, c(het_models,
+                    list(headers = het_headers, se.below = TRUE, tex = TRUE,
+                         title = "Heterogeneity by Coastal Proximity, DR 2017--2025")))
   sink()
 }
 

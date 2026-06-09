@@ -112,9 +112,8 @@ coastal_lookup <- dr_sf %>%
   mutate(
     muni_key     = clean_name(municipio),
     coastal_type = case_when(
-      touches_coast  ~ "coastal",
-      dist_m < 40000 ~ "near_coastal",
-      TRUE           ~ "inland"
+      touches_coast ~ "coastal",
+      TRUE          ~ "not_coastal"
     )
   ) %>%
   select(muni_key, coastal_type)
