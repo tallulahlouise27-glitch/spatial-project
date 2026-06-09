@@ -135,7 +135,7 @@ sink(out)
 cat("================================================================\n")
 cat("SARGASSUM & HOUSEHOLD WELFARE — DOMINICAN REPUBLIC\n")
 cat("Full Results Summary\n")
-cat("Panel: 100 municipalities × 2017-2025 × monthly (10,263 obs)\n")
+cat("Panel: 86 municipalities × 2017-2025 × monthly (9,089 obs)\n")
 cat("All models: municipality FEs + year×month FEs, SEs clustered by municipality\n")
 cat("Treatment: afai_sargassum = mean excess AFAI above 0.001 threshold\n")
 cat("           (captures both spatial coverage and mat density of Sargassum)\n")
@@ -152,16 +152,13 @@ etable(
 )
 cat("\nINTERPRETATION:\n")
 cat(
-  "The full-year income coefficient is negative (-28.15) indicating that higher\n",
-  "Sargassum intensity is associated with lower household income, though the\n",
-  "estimate does not reach conventional significance levels (p = 0.13).\n\n",
-  "The employment rate coefficient is also negative (-4.44) and insignificant,\n",
-  "suggesting Sargassum may reduce employment as well as income, but the data\n",
-  "cannot distinguish this from noise over the full year.\n\n",
+  "The full-year income coefficient is small and negative (-5.71) but far from\n",
+  "significant, indicating no detectable average effect across all months.\n\n",
+  "The employment rate coefficient is also negative (-1.86) and insignificant.\n\n",
   "The peak season result (May-Sep, when Sargassum is most intense) is the\n",
-  "strongest finding in the paper: a coefficient of -73.90 significant at 1%.\n",
+  "strongest finding in the paper: a coefficient of -64.69 significant at 5%.\n",
   "A one-unit increase in mean excess AFAI during peak months is associated with\n",
-  "a 73.9-log-point reduction in municipal income. This concentration of the\n",
+  "a 64.7-log-point reduction in municipal income. This concentration of the\n",
   "effect in peak months is consistent with Sargassum being the mechanism:\n",
   "the harm materialises when blooms are actually present.\n",
   sep = ""
@@ -180,16 +177,16 @@ etable(
 cat("\nINTERPRETATION:\n")
 cat(
   "The coefficients follow the expected gradient: the poorest households show\n",
-  "the largest negative effect (-144.87), shrinking monotonically through the\n",
-  "middle (-30.75) to the richest third (-12.20). This pattern is consistent\n",
+  "the largest negative effect (-157.9), shrinking monotonically through the\n",
+  "middle (-20.62) to the richest third (-11.04). This pattern is consistent\n",
   "with poorer households being least able to insure against environmental shocks.\n\n",
-  "Only T2 reaches significance (p = 0.017). The T1 estimate is imprecise for a\n",
-  "structural reason: approximately 5% of municipality-month observations in the\n",
-  "bottom tertile report zero income, producing a log-income outcome of zero\n",
-  "regardless of Sargassum intensity. This floors the dependent variable and\n",
-  "inflates noise (SD of log_income_t1 = 1.93 vs 0.34 for T2). The T1 effect\n",
-  "is likely attenuated — the true impact on the poorest households may be\n",
-  "larger than estimated but is undetectable through the income measure alone.\n",
+  "None of the three groups reach conventional significance over the full year.\n",
+  "The T1 estimate is imprecise because approximately 5% of municipality-month\n",
+  "observations in the bottom tertile report zero income, producing a log-income\n",
+  "outcome of zero regardless of Sargassum intensity. This floors the dependent\n",
+  "variable and inflates noise (SD of log_income_t1 = 1.93 vs 0.34 for T2).\n",
+  "The T1 effect is likely attenuated — the true impact on the poorest households\n",
+  "may be larger than estimated but is undetectable through the income measure alone.\n",
   sep = ""
 )
 
@@ -205,11 +202,10 @@ etable(
 )
 cat("\nINTERPRETATION:\n")
 cat(
-  "Both coastal and not-coastal municipalities show negative effects, but neither\n",
-  "reaches significance over the full year. Coastal municipalities show a larger\n",
-  "point estimate (-28.84 vs -22.80), as expected given direct shoreline exposure.\n\n",
+  "Coastal municipalities show a negative effect (-28.84) and non-coastal a\n",
+  "near-zero effect (+1.74), but neither is significant over the full year.\n\n",
   "The formal interaction test (Table 6) confirms the difference between groups\n",
-  "is not statistically significant (Wald p = 0.745), meaning we cannot reject\n",
+  "is not statistically significant (Wald p = 0.658), meaning we cannot reject\n",
   "that the two groups experience the same effect size.\n",
   sep = ""
 )
@@ -225,10 +221,9 @@ etable(
 )
 cat("\nINTERPRETATION:\n")
 cat(
-  "The most striking result in the paper: during peak Sargassum months, the\n",
-  "significant effect is found in NOT-COASTAL municipalities (-80.08, p < 0.01),\n",
-  "while coastal municipalities show a negative but insignificant estimate\n",
-  "(-58.95, p = 0.338).\n\n",
+  "During peak Sargassum months, the significant effect is found in NOT-COASTAL\n",
+  "municipalities (-70.87, p < 0.05), while coastal municipalities show a negative\n",
+  "but insignificant estimate (-58.95).\n\n",
   "This is counterintuitive at first glance but has plausible explanations:\n",
   "  1. Coastal households may have diversified income (fishing + tourism + trade)\n",
   "     that allows partial offsetting of Sargassum shocks.\n",
@@ -253,13 +248,12 @@ etable(
 )
 cat("\nINTERPRETATION:\n")
 cat(
-  "During peak Sargassum months, the monotonic gradient persists: T1 (-75.07),\n",
-  "T2 (-48.99, p = 0.004), T3 (-26.64). Again only T2 reaches significance,\n",
-  "for the same reason as Table 2: T1 income is censored at zero for many\n",
-  "observations, preventing detection of the effect on the poorest households.\n\n",
-  "The T2 peak-season coefficient (-48.99) is larger than the full-year T2\n",
-  "coefficient (-30.75), consistent with the effect being concentrated in months\n",
-  "when Sargassum is actually present rather than spread across the whole year.\n",
+  "During peak Sargassum months, T2 reaches significance (-41.86, p < 0.05).\n",
+  "T1 (-117.6) and T3 (-48.76) are both negative but not significant. The T1\n",
+  "imprecision stems from the zero-income floor problem described in Table 2.\n\n",
+  "The T2 peak-season coefficient (-41.86) is larger in absolute value than\n",
+  "the full-year T2 coefficient (-20.62), consistent with the effect being\n",
+  "concentrated in months when Sargassum is actually present.\n",
   sep = ""
 )
 
@@ -285,8 +279,8 @@ cat(sprintf("  F = %.3f, p = %.3f\n", wald_tert$stat, wald_tert$p))
 cat("\nINTERPRETATION:\n")
 cat(
   "Neither formal interaction test rejects the null of equal effects:\n",
-  "  - Coastal vs not-coastal: Wald p = 0.745\n",
-  "  - Tertile heterogeneity:  Wald p = 0.334\n\n",
+  "  - Coastal vs not-coastal: Wald p = 0.658\n",
+  "  - Tertile heterogeneity:  Wald p = 0.459\n\n",
   "The failure to reject does not mean the effects are identical — the point\n",
   "estimates follow the expected pattern in both cases. The tests lack power\n",
   "because (a) the sample has only 100 municipalities and (b) the treatment\n",
@@ -336,17 +330,17 @@ cat("\n================================================================\n")
 cat("SUMMARY OF KEY FINDINGS\n")
 cat("================================================================\n")
 cat(
-  "1. MAIN EFFECT: Sargassum reduces household income, primarily during peak\n",
-  "   season (May-Sep). The peak-season coefficient is -73.90 (p < 0.01),\n",
-  "   concentrated in months when Sargassum blooms are actually present.\n\n",
+  "1. MAIN EFFECT: Sargassum reduces household income during peak season (May-Sep).\n",
+  "   The peak-season coefficient is -64.69 (p < 0.05), concentrated in months\n",
+  "   when Sargassum blooms are actually present.\n\n",
   "2. SPATIAL REACH: The income effect is significant in NOT-COASTAL municipalities\n",
-  "   during peak season (-80.08, p < 0.01), suggesting Sargassum disrupts\n",
+  "   during peak season (-70.87, p < 0.05), suggesting Sargassum disrupts\n",
   "   tourism supply chains and regional economies beyond the shoreline.\n\n",
   "3. DISTRIBUTIONAL EFFECTS: The negative effect is largest for the poorest\n",
-  "   households (T1: -145, T2: -31, T3: -12 full year), consistent with\n",
-  "   limited insurance capacity among low-income households. Only T2 reaches\n",
-  "   significance; T1 is attenuated by zero-income reporting. Table 7 reports\n",
-  "   the same analysis excluding zero-income households for robustness.\n\n",
+  "   households (T1: -158, T2: -21, T3: -11 full year), consistent with\n",
+  "   limited insurance capacity among low-income households. None reach\n",
+  "   significance over the full year; T2 is significant in peak season.\n",
+  "   Table 7 reports the same analysis excluding zero-income households for robustness.\n\n",
   "4. IDENTIFICATION: All models include municipality and year×month fixed effects,\n",
   "   removing time-invariant geographic differences and all common national shocks.\n",
   "   Identification relies on within-municipality monthly variation in Sargassum.\n",

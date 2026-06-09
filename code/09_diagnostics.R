@@ -62,10 +62,11 @@ cat("Data loaded.\n\n")
 # ═══════════════════════════════════════════════════════════════
 cat("Figure 1: Tertile assignment map...\n")
 
-# For each municipality, find their modal (most common) tertile across
-# months — i.e., are they usually in T1, T2, or T3?
+# panel$muni_key is already the GADM-crosswalked name (built in script 04).
+# Join directly on muni_key — do NOT use clean_name(DES_MUNICIPIO),
+# which uses raw ENCFT names that don't match GADM.
 muni_tertile <- panel %>%
-  group_by(ID_MUNICIPIO, muni_key = clean_name(DES_MUNICIPIO)) %>%
+  group_by(muni_key) %>%
   summarise(
     mean_income = mean(ingreso_medio, na.rm = TRUE),
     .groups = "drop"
@@ -80,7 +81,7 @@ muni_tertile <- panel %>%
 
 map1 <- dr_sf %>%
   left_join(muni_tertile, by = "muni_key") %>%
-  mutate(avg_tertile = replace_na(avg_tertile, "No data"))
+  mutate(avg_tertile = replace_na(avg_tertile, "No data (not in panel)"))
 
 p1 <- ggplot(map1) +
   geom_sf(aes(fill = avg_tertile), colour = "white", linewidth = 0.2) +
@@ -89,7 +90,7 @@ p1 <- ggplot(map1) +
       "Bottom third\n(typically poorest)" = "#d73027",
       "Middle third"                      = "#fee090",
       "Top third\n(typically richest)"    = "#1a9850",
-      "No data"                           = "grey85"
+      "No data (not in panel)"            = "grey85"
     ),
     name = NULL,
     na.value = "grey85"
@@ -112,44 +113,64 @@ ggsave(file.path(path_diag, "check1_income_tertile_map.png"),
 cat("  Saved: check1_income_tertile_map.png\n")
 
 # ═══════════════════════════════════════════════════════════════
-# FIGURE 2: Map — Sargassum INCLUDING non-coastal municipalities
-#           (the main map hides these; this shows what values they
-#            are actually being assigned)
+# FIGURE 2: Map — which municipalities were excluded because their
+#           Sargassum values come from inland lakes, not the ocean?
+#           Shows ocean distance and exclusion status.
 # ═══════════════════════════════════════════════════════════════
-cat("Figure 2: Full Sargassum map (including non-coastal)...\n")
+cat("Figure 2: Contamination exclusion map...\n")
 
-muni_sarg_all <- sat %>%
-  mutate(muni_key = clean_name(municipio)) %>%
-  group_by(muni_key) %>%
-  summarise(mean_sargassum = mean(afai_sargassum, na.rm = TRUE), .groups = "drop")
+# Compute ocean distance for all GADM municipalities
+dr_proj2   <- st_transform(dr_sf, 32619)
+coastline2 <- st_difference(st_union(dr_proj2) %>% st_boundary(), haiti_buf)
 
-map2 <- dr_sf %>%
-  left_join(muni_sarg_all, by = "muni_key")
+ocean_dist <- dr_sf %>%
+  st_transform(32619) %>%
+  mutate(ocean_dist_km = as.numeric(st_distance(
+    st_transform(dr_sf, 32619), coastline2)) / 1000) %>%
+  st_drop_geometry() %>%
+  select(muni_key, ocean_dist_km)
 
-p2 <- ggplot(map2) +
-  geom_sf(aes(fill = mean_sargassum), colour = "white", linewidth = 0.2) +
-  scale_fill_distiller(
-    palette   = "YlOrRd",
-    direction = 1,
-    na.value  = "grey90",
-    name      = "Mean\nexcess AFAI",
-    labels    = scales::label_scientific()
+panel_munis <- panel %>% distinct(muni_key)
+
+map2_data <- dr_sf %>%
+  left_join(ocean_dist, by = "muni_key") %>%
+  mutate(
+    in_panel   = muni_key %in% panel_munis$muni_key,
+    excl_label = case_when(
+      !in_panel & ocean_dist_km > 20 ~ "Excluded: >20km from ocean\n(inland lake contamination)",
+      !in_panel                      ~ "Not in panel (no ENCFT data)",
+      ocean_dist_km <= 0.5           ~ "In panel: coastal",
+      TRUE                           ~ "In panel: non-coastal (within 20km)"
+    )
+  )
+
+p2 <- ggplot(map2_data) +
+  geom_sf(aes(fill = excl_label), colour = "white", linewidth = 0.15) +
+  scale_fill_manual(
+    values = c(
+      "In panel: coastal"                              = "#2166ac",
+      "In panel: non-coastal (within 20km)"            = "#a6d4f9",
+      "Excluded: >20km from ocean\n(inland lake contamination)" = "#d73027",
+      "Not in panel (no ENCFT data)"                   = "grey85"
+    ),
+    name = NULL
   ) +
   labs(
-    title    = "CHECK 2: Sargassum values assigned to ALL municipalities",
-    subtitle = "Unlike the main map, non-coastal municipalities are shown here.\nDoes the inland assignment look reasonable? Inland values should be lower than coastal."
+    title    = "CHECK 2: Which municipalities were excluded for inland lake contamination?",
+    subtitle = "Red = excluded from analysis because their 'Sargassum' values came from Lago Enriquillo\nor Lago Azuei/Saumâtre (inland saltwater lakes), not the ocean.\nBlue = coastal (in analysis). Light blue = non-coastal but within 20km of ocean (in analysis)."
   ) +
   theme_void() +
   theme(
-    legend.position   = "right",
-    plot.title        = element_text(size = 12, face = "bold", margin = margin(b = 4)),
-    plot.subtitle     = element_text(size = 9, colour = "grey30"),
+    legend.position   = "bottom",
+    legend.text       = element_text(size = 8),
+    plot.title        = element_text(size = 11, face = "bold", margin = margin(b = 4)),
+    plot.subtitle     = element_text(size = 8, colour = "grey30"),
     plot.margin       = margin(10, 10, 10, 10)
   )
 
-ggsave(file.path(path_diag, "check2_sargassum_all_munis.png"),
-       p2, width = 7, height = 5.5, dpi = 150)
-cat("  Saved: check2_sargassum_all_munis.png\n")
+ggsave(file.path(path_diag, "check2_contamination_exclusion_map.png"),
+       p2, width = 8, height = 6, dpi = 150)
+cat("  Saved: check2_contamination_exclusion_map.png\n")
 
 # ═══════════════════════════════════════════════════════════════
 # FIGURE 3: Time series — Sargassum by coastal vs non-coastal

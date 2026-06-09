@@ -116,6 +116,24 @@ coastline   <- st_difference(dr_boundary, haiti_buf)
 coast_zone    <- st_buffer(coastline, dist = 500)
 touches_coast <- lengths(st_intersects(dr_sf, coast_zone)) > 0
 
+# Compute minimum distance from each municipality boundary to the ocean coastline.
+# Municipalities > 20km from the ocean cannot have legitimate ocean Sargassum values:
+# their 20km satellite buffers only capture inland water bodies (Lago Enriquillo,
+# Lago Azuei/Saumâtre) rather than ocean pixels. Their afai_sargassum values
+# will be set to NA and excluded from all regressions.
+ocean_dist_lookup <- dr_sf %>%
+  mutate(
+    muni_key     = clean_name(municipio),
+    ocean_dist_m = as.numeric(st_distance(dr_sf, coastline))
+  ) %>%
+  st_drop_geometry() %>%
+  select(muni_key, ocean_dist_m)
+
+n_contaminated <- ocean_dist_lookup %>%
+  filter(ocean_dist_m > 20000) %>%
+  nrow()
+cat("Municipalities > 20km from ocean (Sargassum values will be set NA):", n_contaminated, "\n")
+
 coastal_lookup <- dr_sf %>%
   st_drop_geometry() %>%
   mutate(
@@ -148,8 +166,9 @@ panel <- sat_monthly %>%
     encft_q_match %>% mutate(TRIMESTRE = as.integer(TRIMESTRE) %% 10),
     by = c("muni_key", "year" = "ANO", "quarter" = "TRIMESTRE")
   ) %>%
-  left_join(sat_instr,    by = c("year", "month")) %>%
-  left_join(coastal_lookup, by = "muni_key") %>%
+  left_join(sat_instr,       by = c("year", "month")) %>%
+  left_join(coastal_lookup,  by = "muni_key") %>%
+  left_join(ocean_dist_lookup, by = "muni_key") %>%
   filter(!is.na(ID_MUNICIPIO))   # drop satellite rows with no ENCFT match
 
 cat("Monthly panel before filtering:", nrow(panel), "rows\n")
@@ -157,6 +176,9 @@ cat("Monthly panel before filtering:", nrow(panel), "rows\n")
 # ── Step 4: Create analysis variables ─────────────────────────
 panel <- panel %>%
   mutate(
+    # Null out Sargassum for municipalities > 20km from the ocean:
+    # their satellite pixels come from inland lakes, not the ocean.
+    afai_sargassum = if_else(ocean_dist_m > 20000, NA_real_, afai_sargassum),
     log_income    = log(ingreso_medio + 1),
     log_income_t1 = log(ingreso_T1 + 1),
     log_income_t2 = log(ingreso_T2 + 1),
@@ -165,11 +187,7 @@ panel <- panel %>%
     year_fe          = factor(year),
     month_fe         = factor(month),
     quarter_fe       = factor(quarter),
-    # Year×month FE: absorbs every common national shock at monthly frequency
-    # (seasonal Sargassum pattern × year, national economic events, etc.)
     year_month_fe    = factor(paste0(year, "_m", sprintf("%02d", month))),
-    # Year×quarter FE: absorbs mechanical within-quarter income constancy;
-    # this is the "deal with quarterly representativeness" control
     year_quarter_fe  = factor(paste0(year, "_q", quarter))
   ) %>%
   filter(!is.na(log_income), !is.na(afai_sargassum), !is.na(afai_ocean_coverage))

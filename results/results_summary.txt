@@ -1,7 +1,7 @@
 ================================================================
 SARGASSUM & HOUSEHOLD WELFARE — DOMINICAN REPUBLIC
 Full Results Summary
-Panel: 100 municipalities × 2017-2025 × monthly (10,263 obs)
+Panel: 86 municipalities × 2017-2025 × monthly (9,089 obs)
 All models: municipality FEs + year×month FEs, SEs clustered by municipality
 Treatment: afai_sargassum = mean excess AFAI above 0.001 threshold
            (captures both spatial coverage and mat density of Sargassum)
@@ -15,32 +15,29 @@ TABLE 1: Main results — full sample, full year
 (Peak May-Sep)
 Dependent Var.: log_income     tasa_empleo                log_income
                                                                     
-afai_sargassum     -28.15          -4.439                   -73.90**
-                   (18.53)         (3.937)                  (24.28) 
+afai_sargassum      -5.714         -1.860                    -64.69*
+                   (18.46)         (4.504)                   (25.16)
 Fixed-Effects:  ----------     -----------                ----------
 muni_fe                Yes             Yes                       Yes
 year_month_fe          Yes             Yes                       Yes
 _______________ __________     ___________                __________
 S.E.: Clustered by: muni..     by: muni_fe                by: muni..
-Observations        10,263          10,263                     4,344
-R2                 0.52230         0.30484                   0.59279
-Within R2          0.00069         0.00035                   0.00553
+Observations         9,089           9,089                     3,853
+R2                 0.51531         0.31529                   0.59518
+Within R2          2.53e-5         5.51e-5                   0.00422
 ---
 Signif. codes: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
 INTERPRETATION:
-The full-year income coefficient is negative (-28.15) indicating that higher
-Sargassum intensity is associated with lower household income, though the
-estimate does not reach conventional significance levels (p = 0.13).
+The full-year income coefficient is small and negative (-5.71) but far from
+significant, indicating no detectable average effect across all months.
 
-The employment rate coefficient is also negative (-4.44) and insignificant,
-suggesting Sargassum may reduce employment as well as income, but the data
-cannot distinguish this from noise over the full year.
+The employment rate coefficient is also negative (-1.86) and insignificant.
 
 The peak season result (May-Sep, when Sargassum is most intense) is the
-strongest finding in the paper: a coefficient of -73.90 significant at 1%.
+strongest finding in the paper: a coefficient of -64.69 significant at 5%.
 A one-unit increase in mean excess AFAI during peak months is associated with
-a 73.9-log-point reduction in municipal income. This concentration of the
+a 64.7-log-point reduction in municipal income. This concentration of the
 effect in peak months is consistent with Sargassum being the mechanism:
 the harm materialises when blooms are actually present.
 
@@ -52,32 +49,32 @@ TABLE 2: Full-year results by income tertile
                   T1 (Bottom)   T2 (Middle)      T3 (Top)
 Dependent Var.: log_income_t1 log_income_t2 log_income_t3
                                                          
-afai_sargassum       -144.9         -30.75*       -12.20 
-                      (90.05)       (12.71)       (21.74)
+afai_sargassum        -157.9        -20.62        -11.04 
+                      (115.7)       (13.82)       (22.87)
 Fixed-Effects:  ------------- ------------- -------------
 muni_fe                   Yes           Yes           Yes
 year_month_fe             Yes           Yes           Yes
 _______________ _____________ _____________ _____________
 S.E.: Clustered   by: muni_fe   by: muni_fe   by: muni_fe
-Observations           10,122        10,091         9,777
-R2                    0.18525       0.45711       0.42111
-Within R2             0.00063       0.00141       0.00011
+Observations            8,960         8,939         8,773
+R2                    0.17490       0.47581       0.43413
+Within R2             0.00061       0.00059       8.28e-5
 ---
 Signif. codes: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
 INTERPRETATION:
 The coefficients follow the expected gradient: the poorest households show
-the largest negative effect (-144.87), shrinking monotonically through the
-middle (-30.75) to the richest third (-12.20). This pattern is consistent
+the largest negative effect (-157.9), shrinking monotonically through the
+middle (-20.62) to the richest third (-11.04). This pattern is consistent
 with poorer households being least able to insure against environmental shocks.
 
-Only T2 reaches significance (p = 0.017). The T1 estimate is imprecise for a
-structural reason: approximately 5% of municipality-month observations in the
-bottom tertile report zero income, producing a log-income outcome of zero
-regardless of Sargassum intensity. This floors the dependent variable and
-inflates noise (SD of log_income_t1 = 1.93 vs 0.34 for T2). The T1 effect
-is likely attenuated — the true impact on the poorest households may be
-larger than estimated but is undetectable through the income measure alone.
+None of the three groups reach conventional significance over the full year.
+The T1 estimate is imprecise because approximately 5% of municipality-month
+observations in the bottom tertile report zero income, producing a log-income
+outcome of zero regardless of Sargassum intensity. This floors the dependent
+variable and inflates noise (SD of log_income_t1 = 1.93 vs 0.34 for T2).
+The T1 effect is likely attenuated — the true impact on the poorest households
+may be larger than estimated but is undetectable through the income measure alone.
 
 ----------------------------------------------------------------
 TABLE 3: Full-year results by coastal proximity
@@ -87,26 +84,25 @@ TABLE 3: Full-year results by coastal proximity
                    Coastal Not Coastal
 Dependent Var.: log_income  log_income
                                       
-afai_sargassum     -28.84      -22.80 
-                   (49.17)     (17.15)
+afai_sargassum     -28.84        1.739
+                   (49.17)     (17.36)
 Fixed-Effects:  ----------  ----------
 muni_fe                Yes         Yes
 year_month_fe          Yes         Yes
 _______________ __________  __________
 S.E.: Clustered by: muni..  by: muni..
-Observations         4,767       5,496
-R2                 0.46228     0.56486
-Within R2          0.00026     0.00073
+Observations         4,767       4,322
+R2                 0.46228     0.57798
+Within R2          0.00026     4.11e-6
 ---
 Signif. codes: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
 INTERPRETATION:
-Both coastal and not-coastal municipalities show negative effects, but neither
-reaches significance over the full year. Coastal municipalities show a larger
-point estimate (-28.84 vs -22.80), as expected given direct shoreline exposure.
+Coastal municipalities show a negative effect (-28.84) and non-coastal a
+near-zero effect (+1.74), but neither is significant over the full year.
 
 The formal interaction test (Table 6) confirms the difference between groups
-is not statistically significant (Wald p = 0.745), meaning we cannot reject
+is not statistically significant (Wald p = 0.658), meaning we cannot reject
 that the two groups experience the same effect size.
 
 ----------------------------------------------------------------
@@ -116,24 +112,23 @@ TABLE 4: Peak season (May-Sep) results by coastal proximity
                    Coastal  Not Coastal
 Dependent Var.: log_income   log_income
                                        
-afai_sargassum     -58.95      -80.08**
-                   (61.19)     (25.53) 
+afai_sargassum     -58.95       -70.87*
+                   (61.19)      (26.40)
 Fixed-Effects:  ----------   ----------
 muni_fe                Yes          Yes
 year_month_fe          Yes          Yes
 _______________ __________   __________
 S.E.: Clustered by: muni..   by: muni..
-Observations         2,025        2,319
-R2                 0.59963      0.58039
-Within R2          0.00185      0.00821
+Observations         2,025        1,828
+R2                 0.59963      0.59151
+Within R2          0.00185      0.00680
 ---
 Signif. codes: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
 INTERPRETATION:
-The most striking result in the paper: during peak Sargassum months, the
-significant effect is found in NOT-COASTAL municipalities (-80.08, p < 0.01),
-while coastal municipalities show a negative but insignificant estimate
-(-58.95, p = 0.338).
+During peak Sargassum months, the significant effect is found in NOT-COASTAL
+municipalities (-70.87, p < 0.05), while coastal municipalities show a negative
+but insignificant estimate (-58.95).
 
 This is counterintuitive at first glance but has plausible explanations:
   1. Coastal households may have diversified income (fishing + tourism + trade)
@@ -154,28 +149,27 @@ TABLE 5: Peak season (May-Sep) results by income tertile
                   T1 (Bottom)   T2 (Middle)      T3 (Top)
 Dependent Var.: log_income_t1 log_income_t2 log_income_t3
                                                          
-afai_sargassum         -75.07      -48.99**       -26.64 
-                      (147.6)      (16.47)        (31.00)
+afai_sargassum        -117.6        -41.86*       -48.76 
+                      (180.6)       (18.09)       (30.39)
 Fixed-Effects:  ------------- ------------- -------------
 muni_fe                   Yes           Yes           Yes
 year_month_fe             Yes           Yes           Yes
 _______________ _____________ _____________ _____________
 S.E.: Clustered   by: muni_fe   by: muni_fe   by: muni_fe
-Observations            4,287         4,266         4,154
-R2                    0.21393       0.49029       0.44571
-Within R2             0.00015       0.00335       0.00049
+Observations            3,803         3,786         3,736
+R2                    0.20045       0.51215       0.45840
+Within R2             0.00031       0.00247       0.00166
 ---
 Signif. codes: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
 INTERPRETATION:
-During peak Sargassum months, the monotonic gradient persists: T1 (-75.07),
-T2 (-48.99, p = 0.004), T3 (-26.64). Again only T2 reaches significance,
-for the same reason as Table 2: T1 income is censored at zero for many
-observations, preventing detection of the effect on the poorest households.
+During peak Sargassum months, T2 reaches significance (-41.86, p < 0.05).
+T1 (-117.6) and T3 (-48.76) are both negative but not significant. The T1
+imprecision stems from the zero-income floor problem described in Table 2.
 
-The T2 peak-season coefficient (-48.99) is larger than the full-year T2
-coefficient (-30.75), consistent with the effect being concentrated in months
-when Sargassum is actually present rather than spread across the whole year.
+The T2 peak-season coefficient (-41.86) is larger in absolute value than
+the full-year T2 coefficient (-20.62), consistent with the effect being
+concentrated in months when Sargassum is actually present.
 
 ----------------------------------------------------------------
 TABLE 6: Formal interaction tests
@@ -187,24 +181,24 @@ Base group = Coastal. afai_x_not_coastal = difference in effect for not-coastal.
                    ols_coas..
 Dependent Var.:    log_income
                              
-afai_sargassum        -39.97 
-                      (39.16)
-afai_x_not_coastal     13.95 
-                      (42.70)
+afai_sargassum        -20.26 
+                      (38.59)
+afai_x_not_coastal     17.80 
+                      (40.12)
 Fixed-Effects:     ----------
 muni_fe                   Yes
 year_month_fe             Yes
 __________________ __________
 S.E.: Clustered    by: muni..
-Observations           10,263
-R2                    0.52232
-Within R2             0.00073
+Observations            9,089
+R2                    0.51534
+Within R2             0.00010
 ---
 Signif. codes: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 Wald test, H0: nullity of afai_x_not_coastal
- stat = 0.106661, p-value = 0.744668, on 1 and 99 DoF, VCOV: Clustered (muni_fe).
+ stat = 0.196914, p-value = 0.658351, on 1 and 85 DoF, VCOV: Clustered (muni_fe).
 Wald test (H0: no difference between coastal and not-coastal):
-  F = 0.107, p = 0.745
+  F = 0.197, p = 0.658
 
 6B. Tertile interaction test (full year)
 Base group = T1. afai_x_t2/t3 = difference in effect for T2/T3 vs T1.
@@ -212,31 +206,31 @@ Base group = T1. afai_x_t2/t3 = difference in effect for T2/T3 vs T1.
                              ols_stacked
 Dependent Var.:       log_income_tertile
                                         
-afai_sargassum                  -144.9  
-                                 (90.06)
-afai_x_t2                        114.1  
-                                 (89.37)
-afai_x_t3                        132.7  
-                                 (92.28)
+afai_sargassum                   -157.9 
+                                 (115.7)
+afai_x_t2                         137.3 
+                                 (114.0)
+afai_x_t3                         146.8 
+                                 (117.3)
 Fixed-Effects:        ------------------
 muni_tertile_fe                      Yes
 year_month_tertile_fe                Yes
 _____________________ __________________
 S.E.: Clustered         by: ID_MUNICIPIO
-Observations                      29,990
-R2                               0.56632
-Within R2                        0.00063
+Observations                      26,672
+R2                               0.56132
+Within R2                        0.00059
 ---
 Signif. codes: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 Wald test, H0: joint nullity of afai_x_t2 and afai_x_t3
- stat = 1.10834, p-value = 0.334168, on 2 and 99 DoF, VCOV: Clustered (ID_MUNICIPIO).
+ stat = 0.785229, p-value = 0.459295, on 2 and 85 DoF, VCOV: Clustered (ID_MUNICIPIO).
 Wald test (H0: T2 and T3 effects same as T1):
-  F = 1.108, p = 0.334
+  F = 0.785, p = 0.459
 
 INTERPRETATION:
 Neither formal interaction test rejects the null of equal effects:
-  - Coastal vs not-coastal: Wald p = 0.745
-  - Tertile heterogeneity:  Wald p = 0.334
+  - Coastal vs not-coastal: Wald p = 0.658
+  - Tertile heterogeneity:  Wald p = 0.459
 
 The failure to reject does not mean the effects are identical — the point
 estimates follow the expected pattern in both cases. The tests lack power
@@ -254,16 +248,16 @@ TABLE 7: Results by income tertile — positive-income households only
                   T1_nz (Bottom)   T2_nz (Middle)      T3_nz (Top)
 Dependent Var.: log_income_t1_nz log_income_t2_nz log_income_t3_nz
                                                                   
-afai_sargassum           -14.17           -17.83            -7.296
-                         (14.11)          (16.85)          (24.91)
+afai_sargassum            -4.632            3.869            1.803
+                         (14.67)          (16.92)          (23.70)
 Fixed-Effects:  ---------------- ---------------- ----------------
 muni_fe                      Yes              Yes              Yes
 year_month_fe                Yes              Yes              Yes
 _______________ ________________ ________________ ________________
 S.E.: Clustered      by: muni_fe      by: muni_fe      by: muni_fe
-Observations              10,046            9,893            9,556
-R2                       0.34148          0.45230          0.40791
-Within R2                0.00022          0.00035          3.46e-5
+Observations               8,875            8,806            8,613
+R2                       0.35264          0.47372          0.41372
+Within R2                2.03e-5          1.62e-5          1.97e-6
 ---
 Signif. codes: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
@@ -272,16 +266,16 @@ Signif. codes: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
                   T1_nz (Bottom)   T2_nz (Middle)      T3_nz (Top)
 Dependent Var.: log_income_t1_nz log_income_t2_nz log_income_t3_nz
                                                                   
-afai_sargassum          -48.69**          -27.02           -17.69 
-                        (18.03)           (19.62)          (35.59)
+afai_sargassum           -45.86*           -9.352          -34.85 
+                         (18.99)          (18.97)          (33.93)
 Fixed-Effects:  ---------------- ---------------- ----------------
 muni_fe                      Yes              Yes              Yes
 year_month_fe                Yes              Yes              Yes
 _______________ ________________ ________________ ________________
 S.E.: Clustered      by: muni_fe      by: muni_fe      by: muni_fe
-Observations               4,248            4,187            4,052
-R2                       0.36549          0.46098          0.43331
-Within R2                0.00233          0.00077          0.00020
+Observations               3,759            3,733            3,658
+R2                       0.37116          0.48066          0.43711
+Within R2                0.00191          9.55e-5          0.00074
 ---
 Signif. codes: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
 
@@ -306,19 +300,19 @@ Comparison with original tertile results (Table 2 / Table 5):
 ================================================================
 SUMMARY OF KEY FINDINGS
 ================================================================
-1. MAIN EFFECT: Sargassum reduces household income, primarily during peak
-   season (May-Sep). The peak-season coefficient is -73.90 (p < 0.01),
-   concentrated in months when Sargassum blooms are actually present.
+1. MAIN EFFECT: Sargassum reduces household income during peak season (May-Sep).
+   The peak-season coefficient is -64.69 (p < 0.05), concentrated in months
+   when Sargassum blooms are actually present.
 
 2. SPATIAL REACH: The income effect is significant in NOT-COASTAL municipalities
-   during peak season (-80.08, p < 0.01), suggesting Sargassum disrupts
+   during peak season (-70.87, p < 0.05), suggesting Sargassum disrupts
    tourism supply chains and regional economies beyond the shoreline.
 
 3. DISTRIBUTIONAL EFFECTS: The negative effect is largest for the poorest
-   households (T1: -145, T2: -31, T3: -12 full year), consistent with
-   limited insurance capacity among low-income households. Only T2 reaches
-   significance; T1 is attenuated by zero-income reporting. Table 7 reports
-   the same analysis excluding zero-income households for robustness.
+   households (T1: -158, T2: -21, T3: -11 full year), consistent with
+   limited insurance capacity among low-income households. None reach
+   significance over the full year; T2 is significant in peak season.
+   Table 7 reports the same analysis excluding zero-income households for robustness.
 
 4. IDENTIFICATION: All models include municipality and year×month fixed effects,
    removing time-invariant geographic differences and all common national shocks.

@@ -2,15 +2,15 @@
                     Income  Employment Peak Season (May-Sep)
 Dependent Var.: log_income tasa_empleo            log_income
                                                             
-afai_sargassum     -28.15      -4.439               -73.90**
-                   (18.53)     (3.937)              (24.28) 
+afai_sargassum      -5.714     -1.860                -64.69*
+                   (18.46)     (4.504)               (25.16)
 Fixed-Effects:  ---------- -----------            ----------
 muni_fe                Yes         Yes                   Yes
 year_month_fe          Yes         Yes                   Yes
 _______________ __________ ___________            __________
 S.E.: Clustered by: muni.. by: muni_fe            by: muni..
-Observations        10,263      10,263                 4,344
-R2                 0.52230     0.30484               0.59279
-Within R2          0.00069     0.00035               0.00553
+Observations         9,089       9,089                 3,853
+R2                 0.51531     0.31529               0.59518
+Within R2          2.53e-5     5.51e-5               0.00422
 ---
 Signif. codes: 0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
