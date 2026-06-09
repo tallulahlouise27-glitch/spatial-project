@@ -1,6 +1,19 @@
 # ============================================================
 # Sargassum & Household Welfare — Dominican Republic
 # Script 4: Merge ENCFT survey data with satellite data
+#
+# Panel structure: municipality × year × quarter
+#
+# ENCFT is designed to be representative at the quarterly level.
+# Using quarterly income preserves this structure and avoids repeating
+# an annual figure across months where income doesn't actually vary.
+#
+# Treatment (afai_sargassum): quarterly mean coastal Sargassum intensity
+#   mean of monthly afai_sargassum across the 3 months in each quarter
+#
+# Instrument: Bartik shift-share (constructed in script 05)
+#   z_bartik = afai_ocean_coverage_qt × baseline_sargassum_i
+#   Quarterly ocean AFAI × municipality's full-sample mean exposure
 # ============================================================
 
 options(repos = c(CRAN = "https://cran.rstudio.com/"))
@@ -11,51 +24,23 @@ library(geodata)
 path_processed <- "data/processed/"
 
 # ── Load data ─────────────────────────────────────────────────
-cat("Loading ENCFT municipality panel...\n")
-encft <- readRDS(file.path(path_processed, "encft_municipio.rds"))
+cat("Loading ENCFT quarterly municipality panel...\n")
+encft <- readRDS(file.path(path_processed, "encft_municipio_quarterly.rds"))
 
-cat("Loading satellite coastal data...\n")
+cat("Loading ENCFT annual municipality panel (for robustness)...\n")
+encft_annual <- readRDS(file.path(path_processed, "encft_municipio.rds"))
+
+cat("Loading satellite coastal data (monthly)...\n")
 sat_coastal <- readRDS(file.path(path_processed, "satellite_coastal.rds"))
 
-cat("Loading satellite instrument data...\n")
+cat("Loading satellite instrument data (monthly)...\n")
 sat_instr <- readRDS(file.path(path_processed, "satellite_instrument.rds"))
 
-cat("ENCFT rows:", nrow(encft), "\n")
+cat("ENCFT quarterly rows:", nrow(encft), "\n")
 cat("Satellite coastal rows:", nrow(sat_coastal), "\n")
 cat("Instrument rows:", nrow(sat_instr), "\n\n")
 
-# ── Step 1: Average satellite data to municipality × year ─────
-# (ENCFT is annual at municipality level)
-sat_annual <- sat_coastal %>%
-  group_by(municipio, provincia, year) %>%
-  summarise(
-    afai_mean_annual     = mean(afai_mean,       na.rm = TRUE),
-    afai_cov_annual      = mean(afai_coverage,   na.rm = TRUE),
-    # afai_sargassum: mean excess AFAI above 0.001 threshold — captures both
-    # spatial coverage and mat density. Zero = no Sargassum, higher = more/denser.
-    afai_sargassum_annual = mean(afai_sargassum, na.rm = TRUE),
-    # Peak season (May–Sep) when Sargassum is most intense in Caribbean
-    afai_peak             = mean(afai_coverage[month %in% 5:9],   na.rm = TRUE),
-    afai_sargassum_peak   = mean(afai_sargassum[month %in% 5:9],  na.rm = TRUE),
-    .groups = "drop"
-  )
-
-instr_annual <- sat_instr %>%
-  group_by(year) %>%
-  summarise(
-    afai_ocean_annual    = mean(afai_ocean_mean,                                  na.rm = TRUE),
-    afai_ocean_cov       = mean(afai_ocean_coverage,                              na.rm = TRUE),
-    # Peak-season ocean coverage: restricts to May–Sep when the Atlantic
-    # Sargassum belt is active. Annual mean dilutes the signal with winter months.
-    afai_ocean_cov_peak  = mean(afai_ocean_coverage[month %in% 5:9],              na.rm = TRUE),
-    .groups = "drop"
-  )
-
-# ── Step 2: Standardise municipality names for matching ───────
-# ENCFT uses DES_MUNICIPIO (uppercase, accented Spanish)
-# Satellite uses NAME_2 from GADM (mixed case, may differ)
-# Strategy: convert both to lowercase, strip accents, remove punctuation
-
+# ── Step 1: Standardise municipality names for matching ───────
 clean_name <- function(x) {
   x %>%
     tolower() %>%
@@ -65,8 +50,6 @@ clean_name <- function(x) {
     gsub("\\s+", " ", .)
 }
 
-# Crosswalk: ENCFT short/common names → GADM official names
-# ENCFT uses popular names; GADM uses full official municipality names
 name_crosswalk <- tribble(
   ~encft_name,                 ~gadm_name,
   "azua",                      "azua de compostela",
@@ -97,46 +80,42 @@ name_crosswalk <- tribble(
   "yaguate",                   "san gregorio de yaguate"
 )
 
-encft_match <- encft %>%
+# Aggregate satellite to quarterly (Q1=Jan-Mar, Q2=Apr-Jun, Q3=Jul-Sep, Q4=Oct-Dec)
+sat_quarterly <- sat_coastal %>%
   mutate(
-    ANO          = as.integer(ANO),
-    muni_key_raw = clean_name(DES_MUNICIPIO)
+    muni_key = clean_name(municipio),
+    quarter  = ceiling(month / 3)
   ) %>%
-  left_join(name_crosswalk, by = c("muni_key_raw" = "encft_name")) %>%
-  mutate(muni_key = coalesce(gadm_name, muni_key_raw)) %>%
-  select(-muni_key_raw, -gadm_name)
-
-sat_match <- sat_annual %>%
-  mutate(
-    muni_key = clean_name(municipio)
+  group_by(muni_key, municipio, provincia, year, quarter) %>%
+  summarise(
+    afai_sargassum = mean(afai_sargassum, na.rm = TRUE),
+    afai_coverage  = mean(afai_coverage,  na.rm = TRUE),
+    afai_mean      = mean(afai_mean,      na.rm = TRUE),
+    n_months       = n(),
+    .groups = "drop"
   )
 
-# ── Step 3: Classify municipalities by coastal proximity ──────
-# Three categories:
-#   "coastal"      — boundary directly touches the sea
-#   "near_coastal" — within 40km of the coast but no direct shoreline
-#   "inland"       — more than 40km from the coast
-#
-# Method: dissolve all municipality polygons → DR outline → extract coastline →
-# test each municipality against it.
+instr_quarterly <- sat_instr %>%
+  mutate(quarter = ceiling(month / 3)) %>%
+  group_by(year, quarter) %>%
+  summarise(
+    afai_ocean_coverage = mean(afai_ocean_coverage, na.rm = TRUE),
+    afai_ocean_mean     = mean(afai_ocean_mean,     na.rm = TRUE),
+    n_months            = n(),
+    .groups = "drop"
+  )
 
+# ── Step 2: Classify municipalities by coastal proximity ──────
 cat("Classifying municipalities by coastal proximity...\n")
 
 dr_gadm <- gadm(country = "DOM", level = 2, path = "data/raw/satellite/")
 dr_sf   <- st_as_sf(dr_gadm) %>%
   select(municipio = NAME_2) %>%
-  st_transform(32619)   # UTM Zone 19N — metres, covers Dominican Republic
+  st_transform(32619)
 
-# Build coastline as the outer boundary of the dissolved island polygon
-coastline <- st_union(dr_sf) %>% st_boundary()
-
-# 500m buffer around coastline to handle floating-point edge cases
+coastline  <- st_union(dr_sf) %>% st_boundary()
 coast_zone <- st_buffer(coastline, dist = 500)
-
-# coastal = municipality polygon overlaps the 500m coastal strip
 touches_coast <- lengths(st_intersects(dr_sf, coast_zone)) > 0
-
-# distance (metres) from each municipality centroid to coastline
 dist_m <- as.numeric(st_distance(st_centroid(dr_sf), coastline))
 
 coastal_lookup <- dr_sf %>%
@@ -144,9 +123,9 @@ coastal_lookup <- dr_sf %>%
   mutate(
     muni_key = clean_name(municipio),
     coastal_type = case_when(
-      touches_coast      ~ "coastal",
-      dist_m < 40000     ~ "near_coastal",
-      TRUE               ~ "inland"
+      touches_coast  ~ "coastal",
+      dist_m < 40000 ~ "near_coastal",
+      TRUE           ~ "inland"
     )
   ) %>%
   select(muni_key, coastal_type)
@@ -155,50 +134,108 @@ cat("Coastal type breakdown:\n")
 print(table(coastal_lookup$coastal_type))
 cat("\n")
 
-# ── Step 4: Merge ─────────────────────────────────────────────
+# ── Step 3: Build quarterly panel ─────────────────────────────
+# ENCFT quarterly income × quarterly satellite × quarterly ocean instrument.
+# The ENCFT is designed to be representative at the quarterly level —
+# using quarterly income avoids repeating an annual figure and correctly
+# reflects the survey design.
+
+encft_match <- encft %>%
+  mutate(
+    ANO          = as.integer(ANO),
+    TRIMESTRE    = as.integer(TRIMESTRE),
+    muni_key_raw = clean_name(DES_MUNICIPIO)
+  ) %>%
+  left_join(name_crosswalk, by = c("muni_key_raw" = "encft_name")) %>%
+  mutate(muni_key = coalesce(gadm_name, muni_key_raw)) %>%
+  select(-muni_key_raw, -gadm_name)
+
 panel <- encft_match %>%
-  left_join(sat_match,      by = c("muni_key", "ANO" = "year")) %>%
-  left_join(instr_annual,   by = c("ANO" = "year")) %>%
-  left_join(coastal_lookup, by = "muni_key")
+  left_join(sat_quarterly,  by = c("muni_key", "ANO" = "year", "TRIMESTRE" = "quarter")) %>%
+  left_join(instr_quarterly, by = c("ANO" = "year", "TRIMESTRE" = "quarter")) %>%
+  left_join(coastal_lookup,  by = "muni_key")
 
-cat("Merge result:", nrow(panel), "rows\n")
-cat("Municipalities matched with satellite data:",
-    sum(!is.na(panel$afai_cov_annual)), "of", nrow(panel), "\n")
+cat("Quarterly merge result:", nrow(panel), "rows\n")
+cat("Muni-year-quarters with satellite data:",
+    sum(!is.na(panel$afai_sargassum)), "of", nrow(panel), "\n")
 
-# Municipalities with NO satellite data in any year (truly unmatched)
 truly_unmatched <- panel %>%
   group_by(DES_MUNICIPIO, DES_PROVINCIA) %>%
-  summarise(any_sat = any(!is.na(afai_cov_annual)), .groups = "drop") %>%
+  summarise(any_sat = any(!is.na(afai_sargassum)), .groups = "drop") %>%
   filter(!any_sat)
-
-cat("\nMunicipalities with no satellite data at all:", nrow(truly_unmatched),
-    "(likely landlocked — will be dropped from regression)\n")
+cat("Municipalities with no satellite data at all:", nrow(truly_unmatched), "\n\n")
 
 # ── Step 4: Create analysis variables ─────────────────────────
 panel <- panel %>%
   mutate(
-    # Log income (add 1 to handle zeros)
     log_income    = log(ingreso_medio + 1),
-    # Log income by tertile — main heterogeneity outcomes
-    log_income_t1 = log(ingreso_T1 + 1),   # bottom third
-    log_income_t2 = log(ingreso_T2 + 1),   # middle third
-    log_income_t3 = log(ingreso_T3 + 1),   # top third
-    # Year and municipality as factors for fixed effects
-    year_fe  = factor(ANO),
-    muni_fe  = factor(ID_MUNICIPIO)
+    log_income_t1 = log(ingreso_T1 + 1),
+    log_income_t2 = log(ingreso_T2 + 1),
+    log_income_t3 = log(ingreso_T3 + 1),
+    muni_fe          = factor(ID_MUNICIPIO),
+    year_fe          = factor(ANO),
+    quarter_fe       = factor(TRIMESTRE),
+    # Year×quarter FE: absorbs all common national shocks in each quarter
+    # (Sargassum season, macroeconomic fluctuations, survey-wave effects)
+    year_quarter_fe  = factor(paste0(ANO, "_q", TRIMESTRE))
   ) %>%
-  # Keep only rows with all key variables present
-  filter(!is.na(log_income), !is.na(afai_sargassum_annual), !is.na(afai_ocean_cov_peak))
+  filter(!is.na(log_income), !is.na(afai_sargassum), !is.na(afai_ocean_coverage))
 
-cat("\nFinal analysis panel:", nrow(panel), "observations\n")
+cat("Final quarterly panel:", nrow(panel), "observations\n")
 cat("Municipalities:       ", n_distinct(panel$ID_MUNICIPIO), "\n")
 cat("Years:                ", paste(sort(unique(panel$ANO)), collapse = ", "), "\n")
-cat("Employment rate mean: ", round(mean(panel$tasa_empleo, na.rm=TRUE), 3), "\n")
-cat("Log income mean:      ", round(mean(panel$log_income, na.rm=TRUE), 3), "\n")
+cat("Quarters per muni-year (median):",
+    median(panel %>% count(ID_MUNICIPIO, ANO) %>% pull(n)), "\n")
+cat("Log income mean:      ", round(mean(panel$log_income, na.rm = TRUE), 3), "\n")
 cat("\nMunicipalities by coastal type:\n")
 print(table(panel$coastal_type, useNA = "ifany"))
 
-# ── Step 5: Save ──────────────────────────────────────────────
-saveRDS(panel, file.path(path_processed, "panel_analysis.rds"))
-write_csv(panel, file.path(path_processed, "panel_analysis.csv"))
-cat("\nSaved to data/processed/panel_analysis.rds\n")
+# ── Step 5: Annual panel for robustness ───────────────────────
+encft_annual_match <- encft_annual %>%
+  mutate(
+    ANO          = as.integer(ANO),
+    muni_key_raw = clean_name(DES_MUNICIPIO)
+  ) %>%
+  left_join(name_crosswalk, by = c("muni_key_raw" = "encft_name")) %>%
+  mutate(muni_key = coalesce(gadm_name, muni_key_raw)) %>%
+  select(-muni_key_raw, -gadm_name)
+
+sat_annual <- sat_coastal %>%
+  mutate(muni_key = clean_name(municipio)) %>%
+  group_by(muni_key, year) %>%
+  summarise(
+    afai_sargassum_annual = mean(afai_sargassum, na.rm = TRUE),
+    afai_cov_annual       = mean(afai_coverage,  na.rm = TRUE),
+    .groups = "drop"
+  )
+
+instr_annual <- sat_instr %>%
+  group_by(year) %>%
+  summarise(
+    afai_ocean_cov      = mean(afai_ocean_coverage, na.rm = TRUE),
+    afai_ocean_cov_peak = mean(afai_ocean_coverage[month %in% 5:9], na.rm = TRUE),
+    .groups = "drop"
+  )
+
+panel_annual <- encft_annual_match %>%
+  left_join(sat_annual,      by = c("muni_key", "ANO" = "year")) %>%
+  left_join(instr_annual,    by = c("ANO" = "year")) %>%
+  left_join(coastal_lookup,  by = "muni_key") %>%
+  mutate(
+    log_income    = log(ingreso_medio + 1),
+    log_income_t1 = log(ingreso_T1 + 1),
+    log_income_t2 = log(ingreso_T2 + 1),
+    log_income_t3 = log(ingreso_T3 + 1),
+    muni_fe = factor(ID_MUNICIPIO),
+    year_fe = factor(ANO)
+  ) %>%
+  filter(!is.na(log_income), !is.na(afai_sargassum_annual), !is.na(afai_ocean_cov_peak))
+
+cat("\nAnnual robustness panel:", nrow(panel_annual), "observations\n")
+
+# ── Step 6: Save ──────────────────────────────────────────────
+saveRDS(panel,        file.path(path_processed, "panel_quarterly.rds"))
+saveRDS(panel_annual, file.path(path_processed, "panel_analysis.rds"))
+write_csv(panel,        file.path(path_processed, "panel_quarterly.csv"))
+write_csv(panel_annual, file.path(path_processed, "panel_analysis.csv"))
+cat("\nSaved panel_quarterly.rds (main) and panel_analysis.rds (annual robustness)\n")

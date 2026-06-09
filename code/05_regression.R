@@ -36,8 +36,10 @@ dir.create(path_results, showWarnings = FALSE)
 dir.create(path_figures, showWarnings = FALSE)
 
 # ── Load analysis panel ───────────────────────────────────────
-panel <- readRDS(file.path(path_processed, "panel_analysis.rds"))
-cat("Panel loaded:", nrow(panel), "observations\n\n")
+# Primary: quarterly panel (municipality × year × quarter)
+# ENCFT is representative at quarterly level — income genuinely varies Q1–Q4.
+panel <- readRDS(file.path(path_processed, "panel_quarterly.rds"))
+cat("Quarterly panel loaded:", nrow(panel), "observations\n\n")
 
 # ── Construct Bartik shift-share instrument ───────────────────
 # afai_ocean_cov_peak varies only by year → absorbed by year FE alone.
@@ -53,11 +55,11 @@ cat("Panel loaded:", nrow(panel), "observations\n\n")
 panel <- panel %>%
   group_by(ID_MUNICIPIO) %>%
   mutate(
-    baseline_sargassum = mean(afai_sargassum_annual, na.rm = TRUE)
+    baseline_sargassum = mean(afai_sargassum, na.rm = TRUE)
   ) %>%
   ungroup() %>%
   mutate(
-    z_bartik = afai_ocean_cov_peak * baseline_sargassum
+    z_bartik = afai_ocean_coverage * baseline_sargassum
   )
 
 cat("Baseline sargassum by municipality (full-sample mean):\n")
@@ -68,29 +70,30 @@ cat("\n")
 
 # ── Model 1: OLS ──────────────────────────────────────────────
 ols_income <- feols(
-  log_income ~ afai_sargassum_annual | muni_fe + year_fe,
+  log_income ~ afai_sargassum | muni_fe + year_quarter_fe,
   data    = panel,
   cluster = ~muni_fe
 )
 
 # ── Model 2: IV — main causal estimate ────────────────────────
 iv_income <- feols(
-  log_income ~ 1 | muni_fe + year_fe | afai_sargassum_annual ~ z_bartik,
+  log_income ~ 1 | muni_fe + year_quarter_fe | afai_sargassum ~ z_bartik,
   data    = panel,
   cluster = ~muni_fe
 )
 
 # ── Model 3: Effect on employment rate ────────────────────────
 iv_employ <- feols(
-  tasa_empleo ~ 1 | muni_fe + year_fe | afai_sargassum_annual ~ z_bartik,
+  tasa_empleo ~ 1 | muni_fe + year_quarter_fe | afai_sargassum ~ z_bartik,
   data    = panel,
   cluster = ~muni_fe
 )
 
-# ── Model 4: Peak season exposure (May–Sep) ───────────────────
+# ── Model 4: Peak season (Q2 and Q3 only — Apr–Sep) ──────────
+# Restricts to the two quarters when Sargassum is most intense.
 iv_peak <- feols(
-  log_income ~ 1 | muni_fe + year_fe | afai_sargassum_peak ~ z_bartik,
-  data    = panel,
+  log_income ~ 1 | muni_fe + year_quarter_fe | afai_sargassum ~ z_bartik,
+  data    = filter(panel, TRIMESTRE %in% 2:3),
   cluster = ~muni_fe
 )
 
@@ -99,7 +102,7 @@ fishing_muni <- panel %>%
   filter(share_pesca > median(share_pesca, na.rm = TRUE))
 
 iv_fishing <- feols(
-  log_income ~ 1 | muni_fe + year_fe | afai_sargassum_annual ~ z_bartik,
+  log_income ~ 1 | muni_fe + year_quarter_fe | afai_sargassum ~ z_bartik,
   data    = fishing_muni,
   cluster = ~muni_fe
 )
@@ -110,19 +113,19 @@ iv_fishing <- feols(
 # shrinking toward zero for T3.
 
 iv_t1 <- feols(
-  log_income_t1 ~ 1 | muni_fe + year_fe | afai_sargassum_annual ~ z_bartik,
+  log_income_t1 ~ 1 | muni_fe + year_quarter_fe | afai_sargassum ~ z_bartik,
   data    = panel,
   cluster = ~muni_fe
 )
 
 iv_t2 <- feols(
-  log_income_t2 ~ 1 | muni_fe + year_fe | afai_sargassum_annual ~ z_bartik,
+  log_income_t2 ~ 1 | muni_fe + year_quarter_fe | afai_sargassum ~ z_bartik,
   data    = panel,
   cluster = ~muni_fe
 )
 
 iv_t3 <- feols(
-  log_income_t3 ~ 1 | muni_fe + year_fe | afai_sargassum_annual ~ z_bartik,
+  log_income_t3 ~ 1 | muni_fe + year_quarter_fe | afai_sargassum ~ z_bartik,
   data    = panel,
   cluster = ~muni_fe
 )
@@ -136,18 +139,18 @@ iv_t3 <- feols(
 # T2/T3 dummies using the Bartik instrument and its interactions.
 #
 # Coefficients:
-#   fit_afai_sargassum_annual = effect on T1 (base group, poorest third)
+#   fit_afai_sargassum = effect on T1 (base group, poorest third)
 #   fit_afai_x_t2       = how much SMALLER the effect is for T2 vs T1
 #   fit_afai_x_t3       = how much SMALLER the effect is for T3 vs T1
 #
 # If Sargassum hits the poor hardest, we expect:
-#   fit_afai_sargassum_annual < 0  (negative effect on T1)
+#   fit_afai_sargassum < 0  (negative effect on T1)
 #   fit_afai_x_t2 > 0        (T2 less affected than T1)
 #   fit_afai_x_t3 > 0        (T3 even less affected)
 
 panel_long <- panel %>%
-  select(ID_MUNICIPIO, ANO, muni_fe, year_fe,
-         afai_sargassum_annual, z_bartik,
+  select(ID_MUNICIPIO, ANO, TRIMESTRE, muni_fe, year_quarter_fe,
+         afai_sargassum, z_bartik,
          log_income_t1, log_income_t2, log_income_t3) %>%
   pivot_longer(
     cols      = c(log_income_t1, log_income_t2, log_income_t3),
@@ -160,23 +163,20 @@ panel_long <- panel %>%
                      labels = c("T1", "T2", "T3")),
     is_t2 = as.integer(tertile == "T2"),
     is_t3 = as.integer(tertile == "T3"),
-    # Interactions: AFAI × tertile dummy (T1 is base group)
-    afai_x_t2     = afai_sargassum_annual * is_t2,
-    afai_x_t3     = afai_sargassum_annual * is_t3,
-    # Instruments: Bartik × tertile dummy
+    afai_x_t2     = afai_sargassum * is_t2,
+    afai_x_t3     = afai_sargassum * is_t3,
     z_bartik_x_t2 = z_bartik * is_t2,
     z_bartik_x_t3 = z_bartik * is_t3,
-    # Municipality × tertile and year × tertile fixed effects
-    muni_tertile_fe = interaction(muni_fe, tertile),
-    year_tertile_fe = interaction(year_fe, tertile)
+    muni_tertile_fe         = interaction(muni_fe, tertile),
+    year_quarter_tertile_fe = interaction(year_quarter_fe, tertile)
   ) %>%
   filter(!is.na(log_income_tertile))
 
 # Three endogenous variables, three instruments (exactly identified)
 iv_stacked <- feols(
   log_income_tertile ~ 1 |
-    muni_tertile_fe + year_tertile_fe |
-    afai_sargassum_annual + afai_x_t2 + afai_x_t3 ~
+    muni_tertile_fe + year_quarter_tertile_fe |
+    afai_sargassum + afai_x_t2 + afai_x_t3 ~
     z_bartik        + z_bartik_x_t2 + z_bartik_x_t3,
   data    = panel_long,
   cluster = ~ID_MUNICIPIO   # cluster at municipality, not municipality×tertile
@@ -209,7 +209,7 @@ safe_iv <- function(type, data) {
     cat("SKIPPING", type, "(only", n, "municipalities)\n")
     return(NULL)
   }
-  feols(log_income ~ 1 | muni_fe + year_fe | afai_sargassum_annual ~ z_bartik,
+  feols(log_income ~ 1 | muni_fe + year_quarter_fe | afai_sargassum ~ z_bartik,
         data = sub, cluster = ~muni_fe)
 }
 
@@ -222,7 +222,7 @@ cat("====== REGRESSION RESULTS ======\n\n")
 
 cat("--- First stage (instrument strength) ---\n")
 first_stage <- feols(
-  afai_sargassum_annual ~ z_bartik | muni_fe + year_fe,
+  afai_sargassum ~ z_bartik | muni_fe + year_quarter_fe,
   data    = panel,
   cluster = ~muni_fe
 )
@@ -328,14 +328,14 @@ if (length(het_models) == 2) {
 # ── Coefficient plot ──────────────────────────────────────────
 coef_data <- data.frame(
   model    = c("OLS", "IV (Main)", "IV (Peak\nSeason)", "IV (Fishing\nMunicipalities)"),
-  estimate = c(coef(ols_income)["afai_sargassum_annual"],
-               coef(iv_income)["fit_afai_sargassum_annual"],
-               coef(iv_peak)["fit_afai_sargassum_peak"],
-               coef(iv_fishing)["fit_afai_sargassum_annual"]),
-  se       = c(se(ols_income)["afai_sargassum_annual"],
-               se(iv_income)["fit_afai_sargassum_annual"],
-               se(iv_peak)["fit_afai_sargassum_peak"],
-               se(iv_fishing)["fit_afai_sargassum_annual"])
+  estimate = c(coef(ols_income)["afai_sargassum"],
+               coef(iv_income)["fit_afai_sargassum"],
+               coef(iv_peak)["fit_afai_sargassum"],
+               coef(iv_fishing)["fit_afai_sargassum"]),
+  se       = c(se(ols_income)["afai_sargassum"],
+               se(iv_income)["fit_afai_sargassum"],
+               se(iv_peak)["fit_afai_sargassum"],
+               se(iv_fishing)["fit_afai_sargassum"])
 ) %>%
   mutate(
     ci_lo = estimate - 1.96 * se,
@@ -364,12 +364,12 @@ cat("Coefficient plot saved to figures/coef_plot.png\n")
 # most negative and T3 closest to zero.
 tertile_coef <- data.frame(
   group    = c("T1 (Bottom third)", "T2 (Middle third)", "T3 (Top third)"),
-  estimate = c(coef(iv_t1)["fit_afai_sargassum_annual"],
-               coef(iv_t2)["fit_afai_sargassum_annual"],
-               coef(iv_t3)["fit_afai_sargassum_annual"]),
-  se       = c(se(iv_t1)["fit_afai_sargassum_annual"],
-               se(iv_t2)["fit_afai_sargassum_annual"],
-               se(iv_t3)["fit_afai_sargassum_annual"])
+  estimate = c(coef(iv_t1)["fit_afai_sargassum"],
+               coef(iv_t2)["fit_afai_sargassum"],
+               coef(iv_t3)["fit_afai_sargassum"]),
+  se       = c(se(iv_t1)["fit_afai_sargassum"],
+               se(iv_t2)["fit_afai_sargassum"],
+               se(iv_t3)["fit_afai_sargassum"])
 ) %>%
   mutate(
     ci_lo = estimate - 1.96 * se,

@@ -140,15 +140,55 @@ municipio <- municipio %>%
   left_join(municipio_tertiles,
             by = c("ID_MUNICIPIO", "DES_MUNICIPIO", "ID_PROVINCIA", "DES_PROVINCIA", "ANO"))
 
+# ── Aggregate to municipality × year × quarter ────────────────
+# ENCFT is designed to be representative at the quarterly level.
+# This aggregation preserves that structure and allows matching
+# with quarterly satellite data (3-month average AFAI per quarter).
+
+municipio_quarterly <- encft %>%
+  group_by(ID_MUNICIPIO, DES_MUNICIPIO, ID_PROVINCIA, DES_PROVINCIA, ANO, TRIMESTRE) %>%
+  summarise(
+    n_hogares     = n_distinct(ID_HOGAR),
+    ingreso_medio = weighted.mean(ingreso_total, w = as.numeric(FACTOR_EXPANSION), na.rm = TRUE),
+    tasa_empleo   = weighted.mean(as.integer(OCUPADO) == 1,
+                                  w = as.numeric(FACTOR_EXPANSION), na.rm = TRUE),
+    share_pesca   = weighted.mean(es_pescador,
+                                  w = as.numeric(FACTOR_EXPANSION), na.rm = TRUE),
+    .groups = "drop"
+  )
+
+# Tertile income by quarter: use annual national tertile assignments
+# (tertile membership is a property of each household's annual income
+# relative to the national distribution, not quarter-specific)
+municipio_tertiles_q <- hogar %>%
+  group_by(ID_MUNICIPIO, DES_MUNICIPIO, ID_PROVINCIA, DES_PROVINCIA, ANO, TRIMESTRE, tertile) %>%
+  summarise(
+    ingreso_tertile = weighted.mean(ingreso_hogar, w = as.numeric(FACTOR_EXPANSION), na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  pivot_wider(
+    names_from  = tertile,
+    values_from = ingreso_tertile,
+    names_prefix = "ingreso_"
+  )
+
+municipio_quarterly <- municipio_quarterly %>%
+  left_join(municipio_tertiles_q,
+            by = c("ID_MUNICIPIO", "DES_MUNICIPIO", "ID_PROVINCIA", "DES_PROVINCIA",
+                   "ANO", "TRIMESTRE"))
+
 # ── Save ─────────────────────────────────────────────────────
-saveRDS(hogar,     file.path(path_processed, "encft_hogar.rds"))
-saveRDS(municipio, file.path(path_processed, "encft_municipio.rds"))
-write_csv(municipio, file.path(path_processed, "encft_municipio.csv"))
+saveRDS(hogar,               file.path(path_processed, "encft_hogar.rds"))
+saveRDS(municipio,           file.path(path_processed, "encft_municipio.rds"))
+saveRDS(municipio_quarterly, file.path(path_processed, "encft_municipio_quarterly.rds"))
+write_csv(municipio,           file.path(path_processed, "encft_municipio.csv"))
+write_csv(municipio_quarterly, file.path(path_processed, "encft_municipio_quarterly.csv"))
 
 # ── Summary ──────────────────────────────────────────────────
 cat("\n============ ENCFT CLEAN SUMMARY ============\n")
-cat("Household-quarter rows:  ", nrow(hogar), "\n")
-cat("Municipality-year rows:  ", nrow(municipio), "\n")
+cat("Household-quarter rows:       ", nrow(hogar), "\n")
+cat("Municipality-year rows:       ", nrow(municipio), "\n")
+cat("Municipality-year-quarter rows:", nrow(municipio_quarterly), "\n")
 cat("Years covered:           ", paste(sort(unique(municipio$ANO)), collapse = ", "), "\n")
 cat("Provinces:               ", n_distinct(municipio$ID_PROVINCIA), "\n")
 cat("Municipalities:          ", n_distinct(municipio$ID_MUNICIPIO), "\n")
