@@ -1,0 +1,47 @@
+================================================================
+NATIONAL INCOME TERTILE CUTOFFS BY YEAR
+Units: RD$ per capita per month (household income / members)
+================================================================
+
+--- ORIGINAL TERTILES (all households, including zero-income) ---
+Year    T1/T2 boundary  T2/T3 boundary
+-------------------------------------- 
+2017            3000          7000
+2018            3225          7740
+2019            3500          8333
+2020            2867          7500
+2021            3413          8150
+2022            3933          9213
+2023            4300         10750
+2024            5000         12000
+2025            5200         13100
+
+--- NON-ZERO TERTILES (zero-income households excluded, ~17.6% of population) ---
+Year    T1/T2 boundary  T2/T3 boundary
+-------------------------------------- 
+2017            4000          8000
+2018            4300          8859
+2019            4750          9478
+2020            4300          8750
+2021            5000          9667
+2022            5375         10500
+2023            6323         12500
+2024            7000         14000
+2025            7500         15050
+
+--- DIFFERENCE (non-zero cutoffs minus original) ---
+Year      T1/T2 diff    T2/T3 diff
+-------------------------------------- 
+2017            1000          1000
+2018            1075          1119
+2019            1250          1145
+2020            1433          1250
+2021            1587          1517
+2022            1442          1287
+2023            2023          1750
+2024            2000          2000
+2025            2300          1950
+
+NOTE: The T1/T2 boundary rises by ~RD$1,000-2,500/month when zeros are excluded,
+reflecting that zero-income households pulled the original T1 cut down to near zero.
+T1_nz therefore represents genuinely low-earning workers, not non-earners.

@@ -37,6 +37,59 @@ panel <- panel %>%
     afai_x_not_coastal = afai_sargassum * is_not_coastal
   )
 
+# ── Non-zero tertile income variables ────────────────────────
+# Creates T1_nz/T2_nz/T3_nz: tertile cutoffs recomputed after
+# excluding zero-income households. The original T1/T2/T3 columns
+# (which include zeros) are untouched.
+# T1_nz = bottom third of households who report positive income.
+
+hogar_raw <- readRDS(file.path(path_processed, "encft_hogar.rds"))
+
+hogar_nz <- hogar_raw %>% filter(ingreso_pc > 0)
+
+cuts_nz <- hogar_nz %>%
+  group_by(ANO) %>%
+  summarise(
+    t1_cut_nz = quantile(ingreso_pc, 1/3, na.rm = TRUE),
+    t2_cut_nz = quantile(ingreso_pc, 2/3, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+nz_q <- hogar_nz %>%
+  left_join(cuts_nz, by = "ANO") %>%
+  mutate(
+    tertile_nz = case_when(
+      ingreso_pc <= t1_cut_nz ~ "T1",
+      ingreso_pc <= t2_cut_nz ~ "T2",
+      TRUE                    ~ "T3"
+    ),
+    quarter = as.integer(TRIMESTRE) %% 10L
+  ) %>%
+  group_by(ID_MUNICIPIO, ANO, quarter, tertile_nz) %>%
+  summarise(
+    ingreso_nz = weighted.mean(ingreso_hogar,
+                               w = as.numeric(FACTOR_EXPANSION), na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  pivot_wider(
+    names_from  = tertile_nz,
+    values_from = ingreso_nz,
+    names_glue  = "ingreso_{tertile_nz}_nz"
+  )
+
+panel <- panel %>%
+  left_join(nz_q, by = c("ID_MUNICIPIO", "year" = "ANO", "quarter")) %>%
+  mutate(
+    log_income_t1_nz = log(ingreso_T1_nz + 1),
+    log_income_t2_nz = log(ingreso_T2_nz + 1),
+    log_income_t3_nz = log(ingreso_T3_nz + 1)
+  )
+
+cat("Non-zero tertile observations (non-NA, positive log income):\n")
+cat("  T1_nz:", sum(!is.na(panel$ingreso_T1_nz)), "\n")
+cat("  T2_nz:", sum(!is.na(panel$ingreso_T2_nz)), "\n")
+cat("  T3_nz:", sum(!is.na(panel$ingreso_T3_nz)), "\n\n")
+
 cat("Panel summary:\n")
 cat("Observations:", nrow(panel), "\n")
 cat("Municipalities:", n_distinct(panel$ID_MUNICIPIO), "\n")
@@ -82,6 +135,28 @@ ols_t2 <- feols(
 
 ols_t3 <- feols(
   log_income_t3 ~ afai_sargassum | muni_fe + year_month_fe,
+  data    = panel,
+  cluster = ~muni_fe
+)
+
+# ── Models 4b–6b: Non-zero tertile income (full year) ─────────
+# Same structure as Models 4–6 but income averaged over positive-income
+# households only, with tertile cutoffs recomputed on that subsample.
+
+ols_t1_nz <- feols(
+  log_income_t1_nz ~ afai_sargassum | muni_fe + year_month_fe,
+  data    = panel,
+  cluster = ~muni_fe
+)
+
+ols_t2_nz <- feols(
+  log_income_t2_nz ~ afai_sargassum | muni_fe + year_month_fe,
+  data    = panel,
+  cluster = ~muni_fe
+)
+
+ols_t3_nz <- feols(
+  log_income_t3_nz ~ afai_sargassum | muni_fe + year_month_fe,
   data    = panel,
   cluster = ~muni_fe
 )
@@ -194,6 +269,25 @@ ols_peak_t3 <- feols(
   cluster = ~muni_fe
 )
 
+# ── Peak season non-zero tertile models ───────────────────────
+ols_peak_t1_nz <- feols(
+  log_income_t1_nz ~ afai_sargassum | muni_fe + year_month_fe,
+  data    = panel_peak,
+  cluster = ~muni_fe
+)
+
+ols_peak_t2_nz <- feols(
+  log_income_t2_nz ~ afai_sargassum | muni_fe + year_month_fe,
+  data    = panel_peak,
+  cluster = ~muni_fe
+)
+
+ols_peak_t3_nz <- feols(
+  log_income_t3_nz ~ afai_sargassum | muni_fe + year_month_fe,
+  data    = panel_peak,
+  cluster = ~muni_fe
+)
+
 # ── Print results ─────────────────────────────────────────────
 cat("====== REGRESSION RESULTS ======\n\n")
 
@@ -247,6 +341,21 @@ cat("\n--- Peak season by income tertile ---\n")
 etable(
   ols_peak_t1, ols_peak_t2, ols_peak_t3,
   headers  = c("T1 (Bottom)", "T2 (Middle)", "T3 (Top)"),
+  se.below = TRUE
+)
+
+cat("\n--- Non-zero tertile income (full year) ---\n")
+cat("Tertile cutoffs computed on positive-income households only.\n")
+etable(
+  ols_t1_nz, ols_t2_nz, ols_t3_nz,
+  headers  = c("T1_nz (Bottom)", "T2_nz (Middle)", "T3_nz (Top)"),
+  se.below = TRUE
+)
+
+cat("\n--- Non-zero tertile income (peak season, May-Sep) ---\n")
+etable(
+  ols_peak_t1_nz, ols_peak_t2_nz, ols_peak_t3_nz,
+  headers  = c("T1_nz (Bottom)", "T2_nz (Middle)", "T3_nz (Top)"),
   se.below = TRUE
 )
 
@@ -320,6 +429,24 @@ etable(
   headers  = c("T1 (Bottom Third)", "T2 (Middle Third)", "T3 (Top Third)"),
   se.below = TRUE, tex = TRUE,
   title    = "Peak Season Sargassum Effect by Income Tertile, DR 2017--2025"
+)
+sink()
+
+sink(file.path(path_results, "regression_tertile_nz_latex.tex"))
+etable(
+  ols_t1_nz, ols_t2_nz, ols_t3_nz,
+  headers  = c("T1 (Bottom, excl. zero-income)", "T2 (Middle, excl. zero-income)", "T3 (Top, excl. zero-income)"),
+  se.below = TRUE, tex = TRUE,
+  title    = "Sargassum Effect by Income Tertile (Positive-Income Households Only), DR 2017--2025"
+)
+sink()
+
+sink(file.path(path_results, "regression_peak_tertile_nz_latex.tex"))
+etable(
+  ols_peak_t1_nz, ols_peak_t2_nz, ols_peak_t3_nz,
+  headers  = c("T1 (Bottom, excl. zero-income)", "T2 (Middle, excl. zero-income)", "T3 (Top, excl. zero-income)"),
+  se.below = TRUE, tex = TRUE,
+  title    = "Peak Season Sargassum Effect by Income Tertile (Positive-Income Households Only), DR 2017--2025"
 )
 sink()
 

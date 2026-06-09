@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Regression Tables — Sargassum DR</title>
+
+<style>
+  body {
+    font-family: "Times New Roman", Times, serif;
+    font-size: 12pt;
+    color: #000;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 0 20px;
+    line-height: 1.4;
+  }
+  h1 { font-size: 14pt; font-weight: bold; margin-top: 0; }
+  h2 { font-size: 12pt; font-weight: normal; font-style: italic; margin-bottom: 4px; }
+  p.intro { font-size: 11pt; margin-bottom: 24px; color: #333; }
+
+  .tbl-wrap { margin: 32px 0 48px 0; page-break-inside: avoid; }
+  .tbl-title {
+    font-size: 12pt;
+    font-weight: bold;
+    margin-bottom: 6px;
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    font-size: 11pt;
+  }
+  col.rowlabel { width: 200px; }
+  col.datacol  { }
+
+  th, td { padding: 3px 10px; text-align: center; border: none; }
+  th.rowlabel, td.rowlabel { text-align: left; padding-left: 0; }
+  th.hdr { font-weight: normal; font-style: italic; }
+
+  td.depvar { font-style: italic; font-size: 10pt; color: #333; }
+  td.se { font-size: 10.5pt; color: #222; }
+  td.num { }
+  td.notes {
+    text-align: left;
+    font-size: 10pt;
+    padding-top: 6px;
+    padding-left: 0;
+    color: #333;
+  }
+
+  tr.topline td, tr.topline th { border-top: 2px solid #000; padding-top: 6px; }
+  tr.midline td { border-top: 1px solid #000; padding: 2px 0; height: 4px; }
+  tr.bottomline td { border-top: 1.5px solid #000; padding: 0; height: 2px; }
+  tr.fe-sep td { border-top: 1px solid #ccc; padding-top: 5px; }
+  tr.stat-sep td { border-top: 1px solid #ccc; padding-top: 5px; }
+  th.panel-hdr {
+    font-weight: normal;
+    font-style: italic;
+    border-bottom: 1px solid #000;
+    padding-bottom: 2px;
+  }
+  tr.panel-hdr-row th.rowlabel { border-bottom: none; }
+  tr.depvar-row td { font-size: 10pt; padding-bottom: 2px; }
+
+  hr.page-break { border: none; border-top: 1px dashed #ccc; margin: 60px 0; }
+  .instructions {
+    background: #f5f5f5;
+    border-left: 3px solid #aaa;
+    padding: 10px 14px;
+    font-size: 10.5pt;
+    margin-bottom: 32px;
+    font-family: Arial, sans-serif;
+  }
+</style>
+
+</head>
+<body>
+<h1>Sargassum &amp; Household Welfare in the Dominican Republic</h1>
+<h2>Regression Tables for Paper</h2>
+
+<div class="instructions">
+  <strong>How to use:</strong> Open this file in any web browser (Safari, Chrome, etc.).
+  Click just before a table title, drag to select the whole table, then copy (&amp;#8984;C on Mac)
+  and paste directly into Word or Google Docs. The table formatting will be preserved.
+  To select all tables at once: Edit &rarr; Select All, then paste.
+</div>
+
+<p class="intro">
+  Panel: 100 municipalities &times; 2017&ndash;2025 &times; monthly (10,263 observations).<br>
+  All models include municipality fixed effects and year&times;month fixed effects,
+  with standard errors clustered by municipality.
+</p>
+
+
+<div class="tbl-wrap">
+<p class="tbl-title">Table 1. Effect of Sargassum Exposure on Household Welfare</p>
+<table>
+  <colgroup>
+    <col class="rowlabel"><col class="datacol"><col class="datacol"><col class="datacol">
+  </colgroup>
+  <thead>
+    <tr class="topline">
+      <th class="rowlabel"></th>
+      <th class="hdr">Log Income</th>
+          <th class="hdr">Employment Rate</th>
+          <th class="hdr">Log Income (Peak)</th>
+    </tr>
+    <tr class="midline">
+      <td colspan="4"></td>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="rowlabel">Sargassum intensity</td>
+      <td class="num">-28.148</td>
+          <td class="num">-4.439</td>
+          <td class="num">-73.896**</td>
+    </tr>
+    <tr>
+      <td class="rowlabel"></td>
+      <td class="se">(18.527)</td>
+          <td class="se">(3.937)</td>
+          <td class="se">(24.281)</td>
+    </tr>
+    <tr class="stat-sep">
+      <td class="rowlabel">Observations</td>
+      <td class="num">10,263</td>
+          <td class="num">10,263</td>
+          <td class="num">4,344</td>
+    </tr>
+    <tr>
+      <td class="rowlabel">R&sup2;</td>
+      <td class="num">0.522</td>
+          <td class="num">0.305</td>
+          <td class="num">0.593</td>
+    </tr>
+  </tbody>
+  <tfoot>
+    <tr class="bottomline"><td colspan="4"></td></tr>
+    <tr>
+      <td colspan="4" class="notes"><em>Notes:</em> All models estimated by OLS with municipality and year&times;month fixed effects. Standard errors clustered by municipality in parentheses. Treatment variable is mean excess AFAI above the 0.001 threshold (Sargassum intensity). Peak season = May&ndash;September. Within R&sup2; measures variation explained after removing fixed effects. * p&lt;0.05, ** p&lt;0.01, *** p&lt;0.001.</td>
+    </tr>
+  </tfoot>
+</table>
+</div>
+
+
+<div class="tbl-wrap">
+<p class="tbl-title">Table 2. Sargassum Effect by Income Tertile (Full Year and Peak Season)</p>
+<table>
+  <colgroup>
+    <col class="rowlabel"><col class="datacol"><col class="datacol"><col class="datacol"><col class="datacol"><col class="datacol"><col class="datacol">
+  </colgroup>
+  <thead>
+    <tr class="topline panel-hdr-row">
+      <th class="rowlabel"></th>
+      <th colspan="3" class="panel-hdr">Full Year</th>
+          <th colspan="3" class="panel-hdr">Peak Season (May–Sep)</th>
+    </tr>
+    <tr>
+      <th class="rowlabel"></th>
+      <th class="hdr">Bottom</th>
+          <th class="hdr">Middle</th>
+          <th class="hdr">Top</th>
+          <th class="hdr">Bottom</th>
+          <th class="hdr">Middle</th>
+          <th class="hdr">Top</th>
+    </tr>
+    <tr class="midline">
+      <td colspan="7"></td>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="rowlabel">Sargassum intensity</td>
+      <td class="num">-144.866</td>
+          <td class="num">-30.749*</td>
+          <td class="num">-12.198</td>
+          <td class="num">-75.071</td>
+          <td class="num">-48.995**</td>
+          <td class="num">-26.640</td>
+    </tr>
+    <tr>
+      <td class="rowlabel"></td>
+      <td class="se">(90.053)</td>
+          <td class="se">(12.709)</td>
+          <td class="se">(21.736)</td>
+          <td class="se">(147.628)</td>
+          <td class="se">(16.472)</td>
+          <td class="se">(31.002)</td>
+    </tr>
+    <tr class="stat-sep">
+      <td class="rowlabel">Observations</td>
+      <td class="num">10,122</td>
+          <td class="num">10,091</td>
+          <td class="num">9,777</td>
+          <td class="num">4,287</td>
+          <td class="num">4,266</td>
+          <td class="num">4,154</td>
+    </tr>
+    <tr>
+      <td class="rowlabel">R&sup2;</td>
+      <td class="num">0.185</td>
+          <td class="num">0.457</td>
+          <td class="num">0.421</td>
+          <td class="num">0.214</td>
+          <td class="num">0.490</td>
+          <td class="num">0.446</td>
+    </tr>
+  </tbody>
+  <tfoot>
+    <tr class="bottomline"><td colspan="7"></td></tr>
+    <tr>
+      <td colspan="7" class="notes"><em>Notes:</em> All models estimated by OLS with municipality and year&times;month fixed effects. Standard errors clustered by municipality in parentheses. Tertiles defined nationally by year using per-capita household income. T1 = bottom third, T2 = middle third, T3 = top third. Dependent variable is log mean income of each tertile group within the municipality&ndash;month cell. * p&lt;0.05, ** p&lt;0.01, *** p&lt;0.001.</td>
+    </tr>
+  </tfoot>
+</table>
+</div>
+
+
+<div class="tbl-wrap">
+<p class="tbl-title">Table 3. Sargassum Effect by Coastal Proximity (Full Year and Peak Season)</p>
+<table>
+  <colgroup>
+    <col class="rowlabel"><col class="datacol"><col class="datacol"><col class="datacol"><col class="datacol">
+  </colgroup>
+  <thead>
+    <tr class="topline">
+      <th class="rowlabel"></th>
+      <th class="hdr">Coastal</th>
+          <th class="hdr">Not Coastal</th>
+          <th class="hdr">Coastal (Peak)</th>
+          <th class="hdr">Not Coastal (Peak)</th>
+    </tr>
+    <tr class="midline">
+      <td colspan="5"></td>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="rowlabel">Sargassum intensity</td>
+      <td class="num">-28.841</td>
+          <td class="num">-22.801</td>
+          <td class="num">-58.947</td>
+          <td class="num">-80.076**</td>
+    </tr>
+    <tr>
+      <td class="rowlabel"></td>
+      <td class="se">(49.173)</td>
+          <td class="se">(17.154)</td>
+          <td class="se">(61.190)</td>
+          <td class="se">(25.533)</td>
+    </tr>
+    <tr class="stat-sep">
+      <td class="rowlabel">Observations</td>
+      <td class="num">4,767</td>
+          <td class="num">5,496</td>
+          <td class="num">2,025</td>
+          <td class="num">2,319</td>
+    </tr>
+    <tr>
+      <td class="rowlabel">R&sup2;</td>
+      <td class="num">0.462</td>
+          <td class="num">0.565</td>
+          <td class="num">0.600</td>
+          <td class="num">0.580</td>
+    </tr>
+  </tbody>
+  <tfoot>
+    <tr class="bottomline"><td colspan="5"></td></tr>
+    <tr>
+      <td colspan="5" class="notes"><em>Notes:</em> All models estimated by OLS with municipality and year&times;month fixed effects. Standard errors clustered by municipality in parentheses. Coastal municipalities have direct ocean shoreline contact (48 municipalities); not-coastal municipalities are all others (52 municipalities). The Haiti land border is excluded from the coastline classification. * p&lt;0.05, ** p&lt;0.01, *** p&lt;0.001.</td>
+    </tr>
+  </tfoot>
+</table>
+</div>
+
+<hr class="page-break">
+<p style="font-style:italic; font-size:11pt; margin-bottom:8px;">
+  <strong>Column headers for Tables 2 and 4:</strong>
+  Columns (1)&ndash;(3) report full-year results; columns (4)&ndash;(6) report peak-season (May&ndash;Sep) results.
+</p>
+<p style="font-style:italic; font-size:11pt; margin-bottom:8px;">
+  <strong>Column headers for Table 3:</strong>
+  Columns (1)&ndash;(2) report full-year results; columns (3)&ndash;(4) report peak-season results.
+</p>
+<hr class="page-break">
+
+
+<div class="tbl-wrap">
+<p class="tbl-title">Table 4. Sargassum Effect by Income Tertile — Positive-Income Households Only</p>
+<table>
+  <colgroup>
+    <col class="rowlabel"><col class="datacol"><col class="datacol"><col class="datacol"><col class="datacol"><col class="datacol"><col class="datacol">
+  </colgroup>
+  <thead>
+    <tr class="topline panel-hdr-row">
+      <th class="rowlabel"></th>
+      <th colspan="3" class="panel-hdr">Full Year</th>
+          <th colspan="3" class="panel-hdr">Peak Season (May–Sep)</th>
+    </tr>
+    <tr>
+      <th class="rowlabel"></th>
+      <th class="hdr">Bottom</th>
+          <th class="hdr">Middle</th>
+          <th class="hdr">Top</th>
+          <th class="hdr">Bottom</th>
+          <th class="hdr">Middle</th>
+          <th class="hdr">Top</th>
+    </tr>
+    <tr class="midline">
+      <td colspan="7"></td>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="rowlabel">Sargassum intensity</td>
+      <td class="num">-14.173</td>
+          <td class="num">-17.829</td>
+          <td class="num">-7.296</td>
+          <td class="num">-48.686**</td>
+          <td class="num">-27.019</td>
+          <td class="num">-17.691</td>
+    </tr>
+    <tr>
+      <td class="rowlabel"></td>
+      <td class="se">(14.108)</td>
+          <td class="se">(16.849)</td>
+          <td class="se">(24.912)</td>
+          <td class="se">(18.029)</td>
+          <td class="se">(19.618)</td>
+          <td class="se">(35.587)</td>
+    </tr>
+    <tr class="stat-sep">
+      <td class="rowlabel">Observations</td>
+      <td class="num">10,046</td>
+          <td class="num">9,893</td>
+          <td class="num">9,556</td>
+          <td class="num">4,248</td>
+          <td class="num">4,187</td>
+          <td class="num">4,052</td>
+    </tr>
+    <tr>
+      <td class="rowlabel">R&sup2;</td>
+      <td class="num">0.341</td>
+          <td class="num">0.452</td>
+          <td class="num">0.408</td>
+          <td class="num">0.365</td>
+          <td class="num">0.461</td>
+          <td class="num">0.433</td>
+    </tr>
+  </tbody>
+  <tfoot>
+    <tr class="bottomline"><td colspan="7"></td></tr>
+    <tr>
+      <td colspan="7" class="notes"><em>Notes:</em> All models estimated by OLS with municipality and year&times;month fixed effects. Standard errors clustered by municipality in parentheses. Tertiles defined nationally by year after <strong>excluding zero-income households</strong> (~17.6% of the sample). T1 = bottom third, T2 = middle third, T3 = top third of positive-income households. * p&lt;0.05, ** p&lt;0.01, *** p&lt;0.001.</td>
+    </tr>
+  </tfoot>
+</table>
+</div>
+
+
+<hr class="page-break">
+<p style="font-size:11pt; font-weight:bold;">Appendix</p>
+
+<div class="tbl-wrap">
+<p class="tbl-title">Table A2. Adding Fixed Effects Progressively</p>
+<table>
+  <colgroup>
+    <col class="rowlabel">
+    <col class="datacol"><col class="datacol">
+    <col class="datacol"><col class="datacol">
+  </colgroup>
+  <thead>
+    <tr class="topline">
+      <th class="rowlabel"></th>
+      <th class="hdr">No fixed effects</th>
+      <th class="hdr">Municipality FE</th>
+      <th class="hdr">Year&times;Month FE</th>
+      <th class="hdr">Both FEs</th>
+    </tr>
+    <tr class="midline"><td colspan="5"></td></tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td class="rowlabel">Sargassum intensity</td>
+      <td class="num">17.143</td>
+          <td class="num">186.460***</td>
+          <td class="num">-101.017*</td>
+          <td class="num">-28.148</td>
+    </tr>
+    <tr>
+      <td class="rowlabel"></td>
+      <td class="num">(43.577)</td>
+          <td class="num">(18.989)</td>
+          <td class="num">(46.408)</td>
+          <td class="num">(18.527)</td>
+    </tr>
+    <tr class="fe-sep">
+      <td class="rowlabel">Municipality FE</td>
+      <td class="num">No</td><td class="num">Yes</td>
+      <td class="num">No</td><td class="num">Yes</td>
+    </tr>
+    <tr>
+      <td class="rowlabel">Year&times;Month FE</td>
+      <td class="num">No</td><td class="num">No</td>
+      <td class="num">Yes</td><td class="num">Yes</td>
+    </tr>
+    <tr class="stat-sep">
+      <td class="rowlabel">Observations</td>
+      <td class="num">10,263</td>
+          <td class="num">10,263</td>
+          <td class="num">10,263</td>
+          <td class="num">10,263</td>
+    </tr>
+    <tr>
+      <td class="rowlabel">R&sup2;</td>
+      <td class="num">0.000</td>
+          <td class="num">0.306</td>
+          <td class="num">0.241</td>
+          <td class="num">0.522</td>
+    </tr>
+  </tbody>
+  <tfoot>
+    <tr class="bottomline"><td colspan="5"></td></tr>
+    <tr>
+      <td colspan="5" class="notes">
+        <em>Notes:</em> Dependent variable is log household income. Each column adds fixed effects
+        progressively to the baseline OLS regression. Standard errors clustered by municipality
+        in parentheses. The two-way fixed effects specification in column (4) is the main
+        specification used throughout the paper.
+        * p&lt;0.05, ** p&lt;0.01, *** p&lt;0.001.
+      </td>
+    </tr>
+  </tfoot>
+</table>
+</div>
+
+
+<div class="tbl-wrap">
+<p class="tbl-title">Table A1. National Income Tertile Cutoffs by Year</p>
+<table>
+  <colgroup>
+    <col class="rowlabel">
+    <col class="datacol"><col class="datacol">
+    <col class="datacol"><col class="datacol">
+  </colgroup>
+  <thead>
+    <tr class="topline">
+      <th class="rowlabel"></th>
+      <th colspan="2" class="hdr">All households</th>
+      <th colspan="2" class="hdr">Positive-income households only</th>
+    </tr>
+    <tr>
+      <th class="rowlabel">Year</th>
+      <th class="hdr">Bottom/Middle boundary</th>
+      <th class="hdr">Middle/Top boundary</th>
+      <th class="hdr">Bottom/Middle boundary</th>
+      <th class="hdr">Middle/Top boundary</th>
+    </tr>
+    <tr class="midline"><td colspan="5"></td></tr>
+  </thead>
+  <tbody>
+    <tr><td class="rowlabel">2017</td><td class="num">3,000</td><td class="num">7,000</td><td class="num">4,000</td><td class="num">8,000</td></tr>
+<tr><td class="rowlabel">2018</td><td class="num">3,225</td><td class="num">7,740</td><td class="num">4,300</td><td class="num">8,859</td></tr>
+<tr><td class="rowlabel">2019</td><td class="num">3,500</td><td class="num">8,333</td><td class="num">4,750</td><td class="num">9,478</td></tr>
+<tr><td class="rowlabel">2020</td><td class="num">2,867</td><td class="num">7,500</td><td class="num">4,300</td><td class="num">8,750</td></tr>
+<tr><td class="rowlabel">2021</td><td class="num">3,413</td><td class="num">8,150</td><td class="num">5,000</td><td class="num">9,667</td></tr>
+<tr><td class="rowlabel">2022</td><td class="num">3,933</td><td class="num">9,213</td><td class="num">5,375</td><td class="num">10,500</td></tr>
+<tr><td class="rowlabel">2023</td><td class="num">4,300</td><td class="num">10,750</td><td class="num">6,323</td><td class="num">12,500</td></tr>
+<tr><td class="rowlabel">2024</td><td class="num">5,000</td><td class="num">12,000</td><td class="num">7,000</td><td class="num">14,000</td></tr>
+<tr><td class="rowlabel">2025</td><td class="num">5,200</td><td class="num">13,100</td><td class="num">7,500</td><td class="num">15,050</td></tr>
+  </tbody>
+  <tfoot>
+    <tr class="bottomline"><td colspan="5"></td></tr>
+    <tr>
+      <td colspan="5" class="notes">
+        <em>Notes:</em> Units are RD$ per capita per month (household total income divided by number of members).
+        Cutoffs are national percentiles of the per-capita income distribution within each year.
+        Positive-income sample excludes the approximately 17.6% of surveyed households reporting zero income.
+      </td>
+    </tr>
+  </tfoot>
+</table>
+</div>
+
+
+</body>
+</html>

@@ -1,0 +1,25 @@
+\begingroup
+\centering
+\begin{tabular}{lccc}
+   \tabularnewline \midrule \midrule
+   Dependent Variables: & log\_income\_t1\_nz            & log\_income\_t2\_nz            & log\_income\_t3\_nz\\     
+                        & T1 (Bottom, excl. zero-income) & T2 (Middle, excl. zero-income) & T3 (Top, excl. zero-income) \\   
+   Model:               & (1)                            & (2)                            & (3)\\  
+   \midrule
+   \emph{Variables}\\
+   afai\_sargassum      & -48.69$^{***}$                 & -27.02                         & -17.69\\   
+                        & (18.03)                        & (19.62)                        & (35.59)\\   
+   \midrule
+   \emph{Fixed-effects}\\
+   muni\_fe             & Yes                            & Yes                            & Yes\\  
+   year\_month\_fe      & Yes                            & Yes                            & Yes\\  
+   \midrule
+   \emph{Fit statistics}\\
+   Observations         & 4,248                          & 4,187                          & 4,052\\  
+   R$^2$                & 0.36549                        & 0.46098                        & 0.43331\\  
+   Within R$^2$         & 0.00233                        & 0.00077                        & 0.00020\\  
+   \midrule \midrule
+   \multicolumn{4}{l}{\emph{Clustered (muni\_fe) standard-errors in parentheses}}\\
+   \multicolumn{4}{l}{\emph{Signif. Codes: ***: 0.01, **: 0.05, *: 0.1}}\\
+\end{tabular}
+\par\endgroup

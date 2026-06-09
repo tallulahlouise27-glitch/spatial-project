@@ -23,6 +23,49 @@ panel <- panel %>%
     afai_x_not_coastal = afai_sargassum * is_not_coastal
   )
 
+# Non-zero tertile income variables
+hogar_raw <- readRDS(file.path(path_processed, "encft_hogar.rds"))
+
+hogar_nz <- hogar_raw %>% filter(ingreso_pc > 0)
+
+cuts_nz <- hogar_nz %>%
+  group_by(ANO) %>%
+  summarise(
+    t1_cut_nz = quantile(ingreso_pc, 1/3, na.rm = TRUE),
+    t2_cut_nz = quantile(ingreso_pc, 2/3, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+nz_q <- hogar_nz %>%
+  left_join(cuts_nz, by = "ANO") %>%
+  mutate(
+    tertile_nz = case_when(
+      ingreso_pc <= t1_cut_nz ~ "T1",
+      ingreso_pc <= t2_cut_nz ~ "T2",
+      TRUE                    ~ "T3"
+    ),
+    quarter = as.integer(TRIMESTRE) %% 10L
+  ) %>%
+  group_by(ID_MUNICIPIO, ANO, quarter, tertile_nz) %>%
+  summarise(
+    ingreso_nz = weighted.mean(ingreso_hogar,
+                               w = as.numeric(FACTOR_EXPANSION), na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  pivot_wider(
+    names_from  = tertile_nz,
+    values_from = ingreso_nz,
+    names_glue  = "ingreso_{tertile_nz}_nz"
+  )
+
+panel <- panel %>%
+  left_join(nz_q, by = c("ID_MUNICIPIO", "year" = "ANO", "quarter")) %>%
+  mutate(
+    log_income_t1_nz = log(ingreso_T1_nz + 1),
+    log_income_t2_nz = log(ingreso_T2_nz + 1),
+    log_income_t3_nz = log(ingreso_T3_nz + 1)
+  )
+
 panel_peak <- filter(panel, month %in% 5:9)
 
 # Full-year models
@@ -42,6 +85,14 @@ ols_peak_not_coastal <- feols(log_income ~ afai_sargassum | muni_fe + year_month
 ols_peak_t1 <- feols(log_income_t1 ~ afai_sargassum | muni_fe + year_month_fe, panel_peak, cluster = ~muni_fe)
 ols_peak_t2 <- feols(log_income_t2 ~ afai_sargassum | muni_fe + year_month_fe, panel_peak, cluster = ~muni_fe)
 ols_peak_t3 <- feols(log_income_t3 ~ afai_sargassum | muni_fe + year_month_fe, panel_peak, cluster = ~muni_fe)
+
+# Non-zero tertile models (full year and peak)
+ols_t1_nz      <- feols(log_income_t1_nz ~ afai_sargassum | muni_fe + year_month_fe, panel,      cluster = ~muni_fe)
+ols_t2_nz      <- feols(log_income_t2_nz ~ afai_sargassum | muni_fe + year_month_fe, panel,      cluster = ~muni_fe)
+ols_t3_nz      <- feols(log_income_t3_nz ~ afai_sargassum | muni_fe + year_month_fe, panel,      cluster = ~muni_fe)
+ols_peak_t1_nz <- feols(log_income_t1_nz ~ afai_sargassum | muni_fe + year_month_fe, panel_peak, cluster = ~muni_fe)
+ols_peak_t2_nz <- feols(log_income_t2_nz ~ afai_sargassum | muni_fe + year_month_fe, panel_peak, cluster = ~muni_fe)
+ols_peak_t3_nz <- feols(log_income_t3_nz ~ afai_sargassum | muni_fe + year_month_fe, panel_peak, cluster = ~muni_fe)
 
 # Stacked tertile model
 panel_long <- panel %>%
@@ -156,9 +207,9 @@ cat("\nINTERPRETATION:\n")
 cat(
   "Both coastal and not-coastal municipalities show negative effects, but neither\n",
   "reaches significance over the full year. Coastal municipalities show a larger\n",
-  "point estimate (-71.16 vs -14.97), as expected given direct shoreline exposure.\n\n",
+  "point estimate (-28.84 vs -22.80), as expected given direct shoreline exposure.\n\n",
   "The formal interaction test (Table 6) confirms the difference between groups\n",
-  "is not statistically significant (Wald p = 0.154), meaning we cannot reject\n",
+  "is not statistically significant (Wald p = 0.745), meaning we cannot reject\n",
   "that the two groups experience the same effect size.\n",
   sep = ""
 )
@@ -175,9 +226,9 @@ etable(
 cat("\nINTERPRETATION:\n")
 cat(
   "The most striking result in the paper: during peak Sargassum months, the\n",
-  "significant effect is found in NOT-COASTAL municipalities (-84.95, p = 0.001),\n",
-  "while coastal municipalities show a similar magnitude but insignificant\n",
-  "estimate (-76.30, p = 0.156).\n\n",
+  "significant effect is found in NOT-COASTAL municipalities (-80.08, p < 0.01),\n",
+  "while coastal municipalities show a negative but insignificant estimate\n",
+  "(-58.95, p = 0.338).\n\n",
   "This is counterintuitive at first glance but has plausible explanations:\n",
   "  1. Coastal households may have diversified income (fishing + tourism + trade)\n",
   "     that allows partial offsetting of Sargassum shocks.\n",
@@ -234,13 +285,49 @@ cat(sprintf("  F = %.3f, p = %.3f\n", wald_tert$stat, wald_tert$p))
 cat("\nINTERPRETATION:\n")
 cat(
   "Neither formal interaction test rejects the null of equal effects:\n",
-  "  - Coastal vs not-coastal: Wald p = 0.154\n",
+  "  - Coastal vs not-coastal: Wald p = 0.745\n",
   "  - Tertile heterogeneity:  Wald p = 0.334\n\n",
   "The failure to reject does not mean the effects are identical — the point\n",
   "estimates follow the expected pattern in both cases. The tests lack power\n",
   "because (a) the sample has only 100 municipalities and (b) the treatment\n",
   "variable is noisy. These results should be interpreted as consistent with\n",
   "the hypothesised heterogeneity, but insufficient to confirm it statistically.\n",
+  sep = ""
+)
+
+# ── TABLE 7 ──────────────────────────────────────────────────
+cat("\n----------------------------------------------------------------\n")
+cat("TABLE 7: Results by income tertile — positive-income households only\n")
+cat("(Zero-income households excluded; tertile cutoffs recomputed on remaining sample)\n")
+cat("----------------------------------------------------------------\n")
+cat("\n7A. Full year\n")
+etable(
+  ols_t1_nz, ols_t2_nz, ols_t3_nz,
+  headers  = c("T1_nz (Bottom)", "T2_nz (Middle)", "T3_nz (Top)"),
+  se.below = TRUE
+)
+cat("\n7B. Peak season (May-Sep)\n")
+etable(
+  ols_peak_t1_nz, ols_peak_t2_nz, ols_peak_t3_nz,
+  headers  = c("T1_nz (Bottom)", "T2_nz (Middle)", "T3_nz (Top)"),
+  se.below = TRUE
+)
+cat("\nINTERPRETATION:\n")
+cat(
+  "Table 7 replicates Tables 2 and 5 after excluding households reporting zero income.\n",
+  "The zero-income households in the original T1 group floor the log-income outcome\n",
+  "at zero regardless of Sargassum intensity, inflating measurement noise and\n",
+  "attenuating the estimated coefficient.\n\n",
+  "By removing these households and recomputing tertile cutoffs on the positive-income\n",
+  "sample, T1_nz represents the lowest-earning workers (not the non-earners). The\n",
+  "key question is whether the T1_nz coefficient is more precisely estimated and\n",
+  "whether the gradient across tertiles sharpens relative to Tables 2 and 5.\n\n",
+  "Comparison with original tertile results (Table 2 / Table 5):\n",
+  "  - If T1_nz is more negative and/or more significant than original T1,\n",
+  "    this confirms the zero-income floor was masking the effect on the poorest earners.\n",
+  "  - If coefficients are similar across the two samples, the zero-income households\n",
+  "    had little influence on the point estimates (effect operates mainly through\n",
+  "    income variance, not the zero floor).\n",
   sep = ""
 )
 
@@ -253,12 +340,13 @@ cat(
   "   season (May-Sep). The peak-season coefficient is -73.90 (p < 0.01),\n",
   "   concentrated in months when Sargassum blooms are actually present.\n\n",
   "2. SPATIAL REACH: The income effect is significant in NOT-COASTAL municipalities\n",
-  "   during peak season (-84.95, p < 0.01), suggesting Sargassum disrupts\n",
+  "   during peak season (-80.08, p < 0.01), suggesting Sargassum disrupts\n",
   "   tourism supply chains and regional economies beyond the shoreline.\n\n",
   "3. DISTRIBUTIONAL EFFECTS: The negative effect is largest for the poorest\n",
   "   households (T1: -145, T2: -31, T3: -12 full year), consistent with\n",
   "   limited insurance capacity among low-income households. Only T2 reaches\n",
-  "   significance; T1 is attenuated by zero-income reporting.\n\n",
+  "   significance; T1 is attenuated by zero-income reporting. Table 7 reports\n",
+  "   the same analysis excluding zero-income households for robustness.\n\n",
   "4. IDENTIFICATION: All models include municipality and year×month fixed effects,\n",
   "   removing time-invariant geographic differences and all common national shocks.\n",
   "   Identification relies on within-municipality monthly variation in Sargassum.\n",
