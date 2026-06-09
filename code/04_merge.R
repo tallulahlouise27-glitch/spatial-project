@@ -29,18 +29,25 @@ cat("Instrument rows:", nrow(sat_instr), "\n\n")
 sat_annual <- sat_coastal %>%
   group_by(municipio, provincia, year) %>%
   summarise(
-    afai_mean_annual = mean(afai_mean,     na.rm = TRUE),
-    afai_cov_annual  = mean(afai_coverage, na.rm = TRUE),
+    afai_mean_annual     = mean(afai_mean,       na.rm = TRUE),
+    afai_cov_annual      = mean(afai_coverage,   na.rm = TRUE),
+    # afai_sargassum: mean excess AFAI above 0.001 threshold — captures both
+    # spatial coverage and mat density. Zero = no Sargassum, higher = more/denser.
+    afai_sargassum_annual = mean(afai_sargassum, na.rm = TRUE),
     # Peak season (May–Sep) when Sargassum is most intense in Caribbean
-    afai_peak        = mean(afai_coverage[month %in% 5:9], na.rm = TRUE),
+    afai_peak             = mean(afai_coverage[month %in% 5:9],   na.rm = TRUE),
+    afai_sargassum_peak   = mean(afai_sargassum[month %in% 5:9],  na.rm = TRUE),
     .groups = "drop"
   )
 
 instr_annual <- sat_instr %>%
   group_by(year) %>%
   summarise(
-    afai_ocean_annual = mean(afai_ocean_mean,     na.rm = TRUE),
-    afai_ocean_cov    = mean(afai_ocean_coverage, na.rm = TRUE),
+    afai_ocean_annual    = mean(afai_ocean_mean,                                  na.rm = TRUE),
+    afai_ocean_cov       = mean(afai_ocean_coverage,                              na.rm = TRUE),
+    # Peak-season ocean coverage: restricts to May–Sep when the Atlantic
+    # Sargassum belt is active. Annual mean dilutes the signal with winter months.
+    afai_ocean_cov_peak  = mean(afai_ocean_coverage[month %in% 5:9],              na.rm = TRUE),
     .groups = "drop"
   )
 
@@ -176,16 +183,12 @@ panel <- panel %>%
     log_income_t1 = log(ingreso_T1 + 1),   # bottom third
     log_income_t2 = log(ingreso_T2 + 1),   # middle third
     log_income_t3 = log(ingreso_T3 + 1),   # top third
-    # Sargassum exposure: coverage fraction (0–1) needs no log transform
-    # afai_cov_annual  = annual mean fraction of coastal pixels with Sargassum
-    # afai_peak        = same, restricted to peak season May–Sep
-    # afai_ocean_cov   = open-ocean coverage (instrument shift)
     # Year and municipality as factors for fixed effects
     year_fe  = factor(ANO),
     muni_fe  = factor(ID_MUNICIPIO)
   ) %>%
   # Keep only rows with all key variables present
-  filter(!is.na(log_income), !is.na(afai_cov_annual), !is.na(afai_ocean_cov))
+  filter(!is.na(log_income), !is.na(afai_sargassum_annual), !is.na(afai_ocean_cov_peak))
 
 cat("\nFinal analysis panel:", nrow(panel), "observations\n")
 cat("Municipalities:       ", n_distinct(panel$ID_MUNICIPIO), "\n")
