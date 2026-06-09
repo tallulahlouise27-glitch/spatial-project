@@ -55,7 +55,8 @@ muni_mean <- sat %>%
   summarise(mean_sargassum = mean(afai_sargassum, na.rm = TRUE), .groups = "drop")
 
 dr_sf <- dr_sf %>%
-  left_join(muni_mean, by = "muni_key")
+  left_join(muni_mean, by = "muni_key") %>%
+  mutate(mean_sargassum = if_else(coastal_type == "Coastal", mean_sargassum, NA_real_))
 
 cat("Municipalities with Sargassum data:", sum(!is.na(dr_sf$mean_sargassum)), "\n\n")
 
