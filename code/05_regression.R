@@ -36,21 +36,21 @@ dir.create(path_results, showWarnings = FALSE)
 dir.create(path_figures, showWarnings = FALSE)
 
 # ── Load analysis panel ───────────────────────────────────────
-# Primary: quarterly panel (municipality × year × quarter)
-# ENCFT is representative at quarterly level — income genuinely varies Q1–Q4.
-panel <- readRDS(file.path(path_processed, "panel_quarterly.rds"))
-cat("Quarterly panel loaded:", nrow(panel), "observations\n\n")
+# Monthly panel: municipality × year × month.
+# Income from quarterly ENCFT matched to the correct quarter for each month.
+panel <- readRDS(file.path(path_processed, "panel_monthly.rds"))
 
 # ── Construct Bartik shift-share instrument ───────────────────
-# afai_ocean_cov_peak varies only by year → absorbed by year FE alone.
-# Interacting with municipality baseline creates municipality×year variation.
-# Exclusion restriction: Atlantic Sargassum supply affects DR income only
-# through local coastal inundation, scaled by each municipality's exposure.
+# Monthly Bartik: z_bartik = afai_ocean_coverage_mt × baseline_sargassum_i
 #
-# Baseline = full-sample mean afai_sargassum per municipality.
-# Using the full-sample mean (rather than first year only) is standard
-# practice for Bartik instruments (cf. Borusyak et al. 2022) and avoids
-# the problem that 2017 was an unusually low-Sargassum year.
+# afai_ocean_coverage varies by month × year (Atlantic Sargassum signal).
+# baseline_sargassum is each municipality's full-sample mean exposure.
+# Their product creates municipality × month × year variation.
+# year×month FEs absorb the common ocean signal; identification comes from
+# the differential response of high-exposure vs low-exposure municipalities.
+#
+# Exclusion restriction: Atlantic open-ocean Sargassum abundance affects
+# DR household income only through local coastal inundation.
 
 panel <- panel %>%
   group_by(ID_MUNICIPIO) %>%
@@ -70,21 +70,21 @@ cat("\n")
 
 # ── Model 1: OLS ──────────────────────────────────────────────
 ols_income <- feols(
-  log_income ~ afai_sargassum | muni_fe + year_quarter_fe,
+  log_income ~ afai_sargassum | muni_fe + year_month_fe,
   data    = panel,
   cluster = ~muni_fe
 )
 
 # ── Model 2: IV — main causal estimate ────────────────────────
 iv_income <- feols(
-  log_income ~ 1 | muni_fe + year_quarter_fe | afai_sargassum ~ z_bartik,
+  log_income ~ 1 | muni_fe + year_month_fe | afai_sargassum ~ z_bartik,
   data    = panel,
   cluster = ~muni_fe
 )
 
 # ── Model 3: Effect on employment rate ────────────────────────
 iv_employ <- feols(
-  tasa_empleo ~ 1 | muni_fe + year_quarter_fe | afai_sargassum ~ z_bartik,
+  tasa_empleo ~ 1 | muni_fe + year_month_fe | afai_sargassum ~ z_bartik,
   data    = panel,
   cluster = ~muni_fe
 )
@@ -92,8 +92,8 @@ iv_employ <- feols(
 # ── Model 4: Peak season (Q2 and Q3 only — Apr–Sep) ──────────
 # Restricts to the two quarters when Sargassum is most intense.
 iv_peak <- feols(
-  log_income ~ 1 | muni_fe + year_quarter_fe | afai_sargassum ~ z_bartik,
-  data    = filter(panel, TRIMESTRE %in% 2:3),
+  log_income ~ 1 | muni_fe + year_month_fe | afai_sargassum ~ z_bartik,
+  data    = filter(panel, month %in% 5:9),
   cluster = ~muni_fe
 )
 
@@ -102,7 +102,7 @@ fishing_muni <- panel %>%
   filter(share_pesca > median(share_pesca, na.rm = TRUE))
 
 iv_fishing <- feols(
-  log_income ~ 1 | muni_fe + year_quarter_fe | afai_sargassum ~ z_bartik,
+  log_income ~ 1 | muni_fe + year_month_fe | afai_sargassum ~ z_bartik,
   data    = fishing_muni,
   cluster = ~muni_fe
 )
@@ -113,19 +113,19 @@ iv_fishing <- feols(
 # shrinking toward zero for T3.
 
 iv_t1 <- feols(
-  log_income_t1 ~ 1 | muni_fe + year_quarter_fe | afai_sargassum ~ z_bartik,
+  log_income_t1 ~ 1 | muni_fe + year_month_fe | afai_sargassum ~ z_bartik,
   data    = panel,
   cluster = ~muni_fe
 )
 
 iv_t2 <- feols(
-  log_income_t2 ~ 1 | muni_fe + year_quarter_fe | afai_sargassum ~ z_bartik,
+  log_income_t2 ~ 1 | muni_fe + year_month_fe | afai_sargassum ~ z_bartik,
   data    = panel,
   cluster = ~muni_fe
 )
 
 iv_t3 <- feols(
-  log_income_t3 ~ 1 | muni_fe + year_quarter_fe | afai_sargassum ~ z_bartik,
+  log_income_t3 ~ 1 | muni_fe + year_month_fe | afai_sargassum ~ z_bartik,
   data    = panel,
   cluster = ~muni_fe
 )
@@ -149,7 +149,7 @@ iv_t3 <- feols(
 #   fit_afai_x_t3 > 0        (T3 even less affected)
 
 panel_long <- panel %>%
-  select(ID_MUNICIPIO, ANO, TRIMESTRE, muni_fe, year_quarter_fe,
+  select(ID_MUNICIPIO, year, month, muni_fe, year_month_fe,
          afai_sargassum, z_bartik,
          log_income_t1, log_income_t2, log_income_t3) %>%
   pivot_longer(
@@ -168,14 +168,14 @@ panel_long <- panel %>%
     z_bartik_x_t2 = z_bartik * is_t2,
     z_bartik_x_t3 = z_bartik * is_t3,
     muni_tertile_fe         = interaction(muni_fe, tertile),
-    year_quarter_tertile_fe = interaction(year_quarter_fe, tertile)
+    year_month_tertile_fe = interaction(year_month_fe, tertile)
   ) %>%
   filter(!is.na(log_income_tertile))
 
 # Three endogenous variables, three instruments (exactly identified)
 iv_stacked <- feols(
   log_income_tertile ~ 1 |
-    muni_tertile_fe + year_quarter_tertile_fe |
+    muni_tertile_fe + year_month_tertile_fe |
     afai_sargassum + afai_x_t2 + afai_x_t3 ~
     z_bartik        + z_bartik_x_t2 + z_bartik_x_t3,
   data    = panel_long,
@@ -209,7 +209,7 @@ safe_iv <- function(type, data) {
     cat("SKIPPING", type, "(only", n, "municipalities)\n")
     return(NULL)
   }
-  feols(log_income ~ 1 | muni_fe + year_quarter_fe | afai_sargassum ~ z_bartik,
+  feols(log_income ~ 1 | muni_fe + year_month_fe | afai_sargassum ~ z_bartik,
         data = sub, cluster = ~muni_fe)
 }
 
@@ -222,7 +222,7 @@ cat("====== REGRESSION RESULTS ======\n\n")
 
 cat("--- First stage (instrument strength) ---\n")
 first_stage <- feols(
-  afai_sargassum ~ z_bartik | muni_fe + year_quarter_fe,
+  afai_sargassum ~ z_bartik | muni_fe + year_month_fe,
   data    = panel,
   cluster = ~muni_fe
 )
