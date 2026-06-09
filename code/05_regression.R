@@ -59,7 +59,11 @@ panel <- panel %>%
   ) %>%
   ungroup() %>%
   mutate(
-    z_bartik = afai_ocean_coverage * baseline_sargassum
+    z_bartik       = afai_ocean_coverage * baseline_sargassum,
+    is_not_coastal = as.integer(coastal_type == "not_coastal"),
+    # Interaction terms for coastal heterogeneity test
+    afai_x_not_coastal    = afai_sargassum * is_not_coastal,
+    z_bartik_x_not_coastal = z_bartik      * is_not_coastal
   )
 
 cat("Baseline sargassum by municipality (full-sample mean):\n")
@@ -208,6 +212,17 @@ safe_iv <- function(type, data) {
 iv_coastal     <- safe_iv("coastal",     panel)
 iv_not_coastal <- safe_iv("not_coastal", panel)
 
+# Formal interaction test: does the effect differ between coastal and not-coastal?
+# Base group = coastal. Coefficient on afai_x_not_coastal = difference in effect.
+# Two endogenous variables, two instruments (exactly identified).
+iv_coastal_interact <- feols(
+  log_income ~ 1 | muni_fe + year_month_fe |
+    afai_sargassum + afai_x_not_coastal ~
+    z_bartik       + z_bartik_x_not_coastal,
+  data    = panel,
+  cluster = ~muni_fe
+)
+
 # ── Print results ─────────────────────────────────────────────
 cat("====== REGRESSION RESULTS ======\n\n")
 
@@ -253,6 +268,16 @@ if (length(het_models) == 0) {
   etable(het_models[[1]], headers = het_headers, se.below = TRUE)
 } else if (length(het_models) == 2) {
   etable(het_models[[1]], het_models[[2]], headers = het_headers, se.below = TRUE)
+}
+
+cat("\n--- Formal coastal interaction test ---\n")
+cat("Base group = Coastal. Coefficient on afai_x_not_coastal = difference in effect.\n")
+print(summary(iv_coastal_interact))
+cat("\nWald test: is the not-coastal effect significantly different from coastal?\n")
+tryCatch(
+  print(wald(iv_coastal_interact, "afai_x_not_coastal")),
+  error = function(e) cat("Wald test not available:", conditionMessage(e), "\n")
+)
 } else {
   etable(het_models[[1]], het_models[[2]], het_models[[3]], headers = het_headers, se.below = TRUE)
 }
@@ -309,6 +334,12 @@ if (length(het_models) >= 1) {
                          title = "Heterogeneity by Coastal Proximity, DR 2017--2025")))
   sink()
 }
+
+sink(file.path(path_results, "regression_coastal_interact_latex.tex"))
+etable(iv_coastal_interact,
+       se.below = TRUE, tex = TRUE,
+       title = "Formal Test: Differential Sargassum Effect by Coastal Proximity, DR 2017--2025")
+sink()
 
 # ── Coefficient plot ──────────────────────────────────────────
 coef_data <- data.frame(
