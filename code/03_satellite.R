@@ -98,7 +98,15 @@ if (file.exists(out_coastal)) {
   muni_afai <- readRDS(out_coastal)
 } else {
   cat("=== Downloading coastal AFAI (2017–2025) ===\n")
-  muni_afai <- bind_rows(lapply(STUDY_YEARS, function(yr) {
+
+  process_year <- function(yr) {
+    cache_file <- file.path(path_raw_sat, sprintf("coastal_%d.rds", yr))
+
+    # Use per-year cache so crashes don't lose completed years
+    if (file.exists(cache_file)) {
+      cat("  Loading cached year", yr, "\n")
+      return(readRDS(cache_file))
+    }
 
     pixels <- download_afai_year(yr,
                                  DR_LAT_MIN, DR_LAT_MAX,
@@ -106,25 +114,13 @@ if (file.exists(out_coastal)) {
                                  "DR coast")
     if (is.null(pixels) || nrow(pixels) == 0) return(NULL)
 
-    # Spatially join pixels to buffered municipalities
     pts    <- st_as_sf(pixels, coords = c("longitude", "latitude"), crs = 4326)
     joined <- st_join(pts, dr_buffered, join = st_within, left = FALSE)
 
-    # Remove nearshore pixels (0–3km from coastline) — shallow water
-    # contamination from seagrass and coral bottom reflectance
     nearshore_flag <- lengths(st_intersects(joined, nearshore_excl)) > 0
     joined <- joined[!nearshore_flag, ] %>% st_drop_geometry()
 
-    # Aggregate to municipality × month
-    # Three complementary Sargassum measures:
-    #   afai_coverage  — fraction of pixels above the detection threshold (0–1)
-    #                    captures spatial extent: "how much of the coast has Sargassum?"
-    #   afai_sargassum — mean excess AFAI above threshold, pmax(AFAI - 0.001, 0)
-    #                    captures both extent AND density: "how much Sargassum overall?"
-    #                    zero when absent, higher = more/denser mats
-    #   afai_max       — peak AFAI value (useful for detecting episodic heavy events)
-    # Threshold 0.001 from Wang & Hu (2016) AFAI methodology.
-    joined %>%
+    result <- joined %>%
       group_by(municipio, provincia, year, month) %>%
       summarise(
         afai_mean      = mean(AFAI, na.rm = TRUE),
@@ -134,7 +130,13 @@ if (file.exists(out_coastal)) {
         n_pixels       = n(),
         .groups = "drop"
       )
-  }))
+
+    saveRDS(result, cache_file)
+    cat("  Year", yr, "saved to cache.\n")
+    result
+  }
+
+  muni_afai <- bind_rows(lapply(STUDY_YEARS, process_year))
 
   saveRDS(muni_afai, out_coastal)
   write_csv(muni_afai, file.path(path_processed, "satellite_coastal.csv"))
