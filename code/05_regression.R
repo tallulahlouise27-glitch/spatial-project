@@ -269,14 +269,11 @@ tryCatch(
   print(wald(iv_coastal_interact, "afai_x_not_coastal")),
   error = function(e) cat("Wald test not available:", conditionMessage(e), "\n")
 )
-} else {
-  etable(het_models[[1]], het_models[[2]], het_models[[3]], headers = het_headers, se.below = TRUE)
-}
 
 # ── Instrument validity checks ────────────────────────────────
 cat("\n====== INSTRUMENT CHECKS ======\n")
 fs <- fitstat(iv_income, "ivf")
-cat("First-stage F-statistic:", round(fs$ivf$stat, 2), "\n")
+cat("First-stage F-statistic:", round(fs[[1]]$stat, 2), "\n")
 cat("Rule of thumb: F > 10 = strong instrument\n\n")
 
 # ── Export tables ─────────────────────────────────────────────

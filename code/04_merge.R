@@ -76,6 +76,7 @@ name_crosswalk <- tribble(
   "villa isabela",             "la isabela",
   "villa montellano",          "montellano",
   "villa riva",                "villa rivas",
+  "villa los almacigos",       "los almacigos",
   "villa vasquez",             "villa vazquez",
   "yaguate",                   "san gregorio de yaguate"
 )

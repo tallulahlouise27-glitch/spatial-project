@@ -45,25 +45,29 @@ OC_LON_MIN <- -65.0; OC_LON_MAX <- -45.0
 
 # ── Helper: download one year of AFAI for a bounding box ──────
 download_afai_year <- function(year, lat_min, lat_max, lon_min, lon_max, label) {
-  cat("  Downloading", label, year, "...\n")
-  tryCatch({
-    raw <- griddap(DATASET_ID,
-                   url       = ERDDAP_URL,
-                   time      = c(paste0(year, "-01-01"), paste0(year, "-12-31")),
-                   latitude  = c(lat_min, lat_max),
-                   longitude = c(lon_min, lon_max),
-                   fields    = "AFAI")
-    raw$data %>%
-      mutate(
-        year  = as.integer(year),
-        month = lubridate::month(time)
-      ) %>%
-      filter(!is.na(AFAI)) %>%
-      select(longitude, latitude, year, month, AFAI)
-  }, error = function(e) {
-    cat("    WARNING: failed for", label, year, "–", conditionMessage(e), "\n")
-    NULL
-  })
+  cat("  Downloading", label, year, "(month by month)...\n")
+  months_data <- bind_rows(lapply(1:12, function(mo) {
+    start <- sprintf("%d-%02d-01", year, mo)
+    end   <- format(as.Date(start) + months(1) - lubridate::days(1), "%Y-%m-%d")
+    tryCatch({
+      raw <- griddap(DATASET_ID,
+                     url       = ERDDAP_URL,
+                     time      = c(start, end),
+                     latitude  = c(lat_min, lat_max),
+                     longitude = c(lon_min, lon_max),
+                     fields    = "AFAI")
+      cat("    month", mo, ":", nrow(raw$data), "pixels\n")
+      raw$data %>%
+        filter(!is.na(AFAI)) %>%
+        mutate(year = as.integer(year), month = as.integer(mo)) %>%
+        select(longitude, latitude, year, month, AFAI)
+    }, error = function(e) {
+      cat("    WARNING: failed for", label, year, "month", mo, "–", conditionMessage(e), "\n")
+      NULL
+    })
+  }))
+  if (is.null(months_data) || nrow(months_data) == 0) return(NULL)
+  months_data
 }
 
 # ── Step 1: Load DR municipality boundaries ───────────────────
