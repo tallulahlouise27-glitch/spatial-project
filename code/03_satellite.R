@@ -79,7 +79,7 @@ dr_sf   <- st_as_sf(dr_gadm) %>%
 
 # Build spatial filters in projected CRS (UTM Zone 19N) so distances are in metres
 dr_sf_proj  <- st_transform(dr_sf, 32619)
-dr_buffered <- st_buffer(dr_sf_proj, dist = 20000) %>% st_transform(4326)  # 20km seaward
+dr_buffered <- st_buffer(dr_sf_proj, dist = 20000) %>% st_transform(4326)
 
 # Nearshore exclusion zone: strip pixels within 3km of the coastline.
 # The 0–3km zone is shallow water dominated by seagrass and coral bottom
@@ -87,8 +87,21 @@ dr_buffered <- st_buffer(dr_sf_proj, dist = 20000) %>% st_transform(4326)  # 20k
 coastline_proj  <- st_union(dr_sf_proj) %>% st_boundary()
 nearshore_excl  <- st_buffer(coastline_proj, dist = 3000) %>% st_transform(4326)
 
+# Land mask for Hispaniola: excludes inland pixels including Lago Enriquillo.
+# GADM level-0 polygons are solid administrative boundaries that contain inland
+# water bodies — any pixel falling inside this polygon is on land or in an
+# inland lake, not ocean. Haiti is included because the bounding box overlaps
+# the Haiti/DR border and Lago Azuei (Saumâtre) sits on the Haitian side.
+cat("Loading Hispaniola land mask...\n")
+dr_land_0  <- st_as_sf(gadm(country = "DOM", level = 0, path = path_raw_sat)) %>%
+  st_transform(4326)
+hti_land_0 <- st_as_sf(gadm(country = "HTI", level = 0, path = path_raw_sat)) %>%
+  st_transform(4326)
+hispaniola <- st_union(st_geometry(dr_land_0), st_geometry(hti_land_0))
+
 cat("Municipalities loaded:", nrow(dr_sf), "\n")
-cat("Nearshore exclusion zone: 3km from coastline\n\n")
+cat("Nearshore exclusion zone: 3km from coastline\n")
+cat("Land mask: Hispaniola (DR + Haiti) — excludes Lago Enriquillo and Lago Azuei\n\n")
 
 # ── Step 2: Download + spatially aggregate DR coastal AFAI ────
 # Process year by year to keep memory usage manageable.
@@ -118,19 +131,40 @@ if (file.exists(out_coastal)) {
                                  "DR coast")
     if (is.null(pixels) || nrow(pixels) == 0) return(NULL)
 
-    pts    <- st_as_sf(pixels, coords = c("longitude", "latitude"), crs = 4326)
-    joined <- st_join(pts, dr_buffered, join = st_within, left = FALSE)
+    pts <- st_as_sf(pixels, coords = c("longitude", "latitude"), crs = 4326)
 
-    nearshore_flag <- lengths(st_intersects(joined, nearshore_excl)) > 0
-    joined <- joined[!nearshore_flag, ] %>% st_drop_geometry()
+    # Step 1: Keep only pixels within at least one municipality's 20km buffer
+    in_any_buffer <- lengths(st_intersects(pts, dr_buffered)) > 0
+    pts_coast     <- pts[in_any_buffer, ]
+
+    # Step 2: Remove nearshore pixels (within 3km of coastline)
+    nearshore_flag <- lengths(st_intersects(pts_coast, nearshore_excl)) > 0
+    pts_coast      <- pts_coast[!nearshore_flag, ]
+
+    # Step 3: Remove inland pixels — land and inland water bodies (Lago Enriquillo,
+    # Lago Azuei). GADM level-0 polygons include these lakes within the boundary,
+    # so any pixel inside the Hispaniola polygon is not ocean.
+    on_land   <- lengths(st_within(pts_coast, hispaniola)) > 0
+    pts_coast <- pts_coast[!on_land, ]
+
+    cat("    Pixels after inland exclusion:", nrow(pts_coast), "\n")
+
+    # Step 4: Assign each pixel to its single nearest municipality
+    nearest_idx <- st_nearest_feature(pts_coast, dr_sf)
+    joined <- pts_coast %>%
+      mutate(
+        municipio = dr_sf$municipio[nearest_idx],
+        provincia = dr_sf$provincia[nearest_idx]
+      ) %>%
+      st_drop_geometry()
 
     result <- joined %>%
       group_by(municipio, provincia, year, month) %>%
       summarise(
         afai_mean      = mean(AFAI, na.rm = TRUE),
         afai_max       = max(AFAI,  na.rm = TRUE),
-        afai_coverage  = mean(AFAI > 0.001,           na.rm = TRUE),
-        afai_sargassum = mean(pmax(AFAI - 0.001, 0),  na.rm = TRUE),
+        afai_coverage  = mean(AFAI > 0, na.rm = TRUE),
+        afai_sargassum = mean(AFAI, na.rm = TRUE),
         n_pixels       = n(),
         .groups = "drop"
       )

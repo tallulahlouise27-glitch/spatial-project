@@ -56,6 +56,7 @@ encft <- encft_raw %>%
   mutate(
     ANO          = as.integer(ANO),
     TRIMESTRE    = as.integer(TRIMESTRE),
+    MES          = as.integer(MES),
     ID_PROVINCIA = as.integer(ID_PROVINCIA),
     ID_MUNICIPIO = as.integer(ID_MUNICIPIO),
     ingreso_total = coalesce(as.numeric(INGRESO_ASALARIADO), 0) +
@@ -177,12 +178,80 @@ municipio_quarterly <- municipio_quarterly %>%
             by = c("ID_MUNICIPIO", "DES_MUNICIPIO", "ID_PROVINCIA", "DES_PROVINCIA",
                    "ANO", "TRIMESTRE"))
 
+# ── Aggregate to municipality × year × month ──────────────────
+# Uses MES to capture genuine within-quarter monthly income variation.
+# Each household is surveyed once per quarter; MES records which month.
+# Income reported reflects conditions at interview time, so monthly
+# averages capture real within-quarter variation — not just repeated
+# quarterly values. Monthly samples are smaller than quarterly, so
+# estimates are noisier for small municipalities.
+
+hogar_monthly <- encft %>%
+  filter(!is.na(MES)) %>%
+  group_by(ID_HOGAR, ANO, TRIMESTRE, MES,
+           ID_PROVINCIA, DES_PROVINCIA,
+           ID_MUNICIPIO, DES_MUNICIPIO,
+           ZONA, FACTOR_EXPANSION) %>%
+  summarise(
+    n_miembros    = n(),
+    ingreso_hogar = sum(ingreso_total, na.rm = TRUE),
+    tasa_empleo   = mean(as.integer(OCUPADO) == 1, na.rm = TRUE),
+    hogar_pesca   = as.integer(any(es_pescador == 1, na.rm = TRUE)),
+    .groups = "drop"
+  ) %>%
+  mutate(ingreso_pc = ingreso_hogar / pmax(n_miembros, 1)) %>%
+  left_join(tertile_cuts, by = "ANO") %>%
+  mutate(
+    tertile = case_when(
+      ingreso_pc <= t1_cut ~ "T1",
+      ingreso_pc <= t2_cut ~ "T2",
+      TRUE                 ~ "T3"
+    )
+  )
+
+municipio_monthly <- hogar_monthly %>%
+  group_by(ID_MUNICIPIO, DES_MUNICIPIO, ID_PROVINCIA, DES_PROVINCIA, ANO, TRIMESTRE, MES) %>%
+  summarise(
+    n_hogares     = n_distinct(ID_HOGAR),
+    ingreso_medio = weighted.mean(ingreso_hogar, w = as.numeric(FACTOR_EXPANSION), na.rm = TRUE),
+    tasa_empleo   = weighted.mean(tasa_empleo,   w = as.numeric(FACTOR_EXPANSION), na.rm = TRUE),
+    share_pesca   = weighted.mean(hogar_pesca,   w = as.numeric(FACTOR_EXPANSION), na.rm = TRUE),
+    .groups = "drop"
+  )
+
+municipio_tertiles_m <- hogar_monthly %>%
+  group_by(ID_MUNICIPIO, DES_MUNICIPIO, ID_PROVINCIA, DES_PROVINCIA,
+           ANO, TRIMESTRE, MES, tertile) %>%
+  summarise(
+    ingreso_tertile = weighted.mean(ingreso_hogar, w = as.numeric(FACTOR_EXPANSION), na.rm = TRUE),
+    .groups = "drop"
+  ) %>%
+  pivot_wider(
+    names_from   = tertile,
+    values_from  = ingreso_tertile,
+    names_prefix = "ingreso_"
+  )
+
+municipio_monthly <- municipio_monthly %>%
+  left_join(municipio_tertiles_m,
+            by = c("ID_MUNICIPIO", "DES_MUNICIPIO", "ID_PROVINCIA", "DES_PROVINCIA",
+                   "ANO", "TRIMESTRE", "MES"))
+
+cat("Monthly municipality rows:", nrow(municipio_monthly), "\n")
+cat("Median households per municipality-month:",
+    median(municipio_monthly$n_hogares, na.rm = TRUE), "\n")
+cat("Min households per municipality-month:",
+    min(municipio_monthly$n_hogares, na.rm = TRUE), "\n\n")
+
 # ── Save ─────────────────────────────────────────────────────
 saveRDS(hogar,               file.path(path_processed, "encft_hogar.rds"))
+saveRDS(hogar_monthly,       file.path(path_processed, "encft_hogar_monthly.rds"))
 saveRDS(municipio,           file.path(path_processed, "encft_municipio.rds"))
 saveRDS(municipio_quarterly, file.path(path_processed, "encft_municipio_quarterly.rds"))
+saveRDS(municipio_monthly,   file.path(path_processed, "encft_municipio_monthly.rds"))
 write_csv(municipio,           file.path(path_processed, "encft_municipio.csv"))
 write_csv(municipio_quarterly, file.path(path_processed, "encft_municipio_quarterly.csv"))
+write_csv(municipio_monthly,   file.path(path_processed, "encft_municipio_monthly.csv"))
 
 # ── Summary ──────────────────────────────────────────────────
 cat("\n============ ENCFT CLEAN SUMMARY ============\n")

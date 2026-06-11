@@ -24,10 +24,13 @@ library(geodata)
 path_processed <- "data/processed/"
 
 # ── Load data ─────────────────────────────────────────────────
-cat("Loading ENCFT quarterly municipality panel...\n")
+cat("Loading ENCFT household-month panel (main)...\n")
+hogar_m <- readRDS(file.path(path_processed, "encft_hogar_monthly.rds"))
+
+cat("Loading ENCFT quarterly municipality panel (robustness)...\n")
 encft_q <- readRDS(file.path(path_processed, "encft_municipio_quarterly.rds"))
 
-cat("Loading ENCFT annual panel (for robustness)...\n")
+cat("Loading ENCFT annual panel (robustness)...\n")
 encft_a <- readRDS(file.path(path_processed, "encft_municipio.rds"))
 
 cat("Loading satellite coastal data (monthly)...\n")
@@ -36,6 +39,7 @@ sat_coastal <- readRDS(file.path(path_processed, "satellite_coastal.rds"))
 cat("Loading satellite instrument data (monthly)...\n")
 sat_instr <- readRDS(file.path(path_processed, "satellite_instrument.rds"))
 
+cat("ENCFT household-month rows:", nrow(hogar_m), "\n")
 cat("ENCFT quarterly rows:", nrow(encft_q), "\n")
 cat("Satellite coastal rows:", nrow(sat_coastal), "\n")
 cat("Instrument rows:", nrow(sat_instr), "\n\n")
@@ -92,6 +96,7 @@ apply_crosswalk <- function(df, year_col = "ANO") {
     select(-muni_key_raw, -gadm_name)
 }
 
+hogar_m_match <- apply_crosswalk(hogar_m, year_col = "ANO")
 encft_q_match <- apply_crosswalk(encft_q)
 encft_a_match <- apply_crosswalk(encft_a)
 
@@ -149,57 +154,120 @@ cat("Coastal type breakdown:\n")
 print(table(coastal_lookup$coastal_type))
 cat("\n")
 
-# ── Step 3: Build monthly panel ───────────────────────────────
-# Add muni_key and quarter to satellite data.
-# Join quarterly ENCFT income by (muni_key, ANO, quarter).
-# Result: each monthly satellite row carries the income from the
-# ENCFT wave covering that month's quarter.
+# ── Step 3: Build household-level monthly panel ────────────────
+# One row per household per month. Satellite treatment is merged in
+# at the municipality-month level — all households in the same
+# municipality-month receive the same Sargassum value.
+# Standard errors must be clustered at municipality level because
+# the treatment does not vary within municipality-months.
 
 sat_monthly <- sat_coastal %>%
   mutate(
     muni_key = clean_name(municipio),
     quarter  = ceiling(month / 3)
+  ) %>%
+  select(muni_key, year, month, quarter,
+         afai_sargassum, afai_coverage, afai_mean)
+
+# Build satellite + instrument lookup: one row per muni-month
+sat_lookup <- sat_monthly %>%
+  left_join(sat_instr,        by = c("year", "month")) %>%
+  left_join(coastal_lookup,   by = "muni_key") %>%
+  left_join(ocean_dist_lookup, by = "muni_key")
+
+panel <- hogar_m_match %>%
+  rename(month = MES) %>%
+  mutate(
+    quarter  = as.integer(TRIMESTRE) %% 10,
+    TRIMESTRE = NULL
+  ) %>%
+  inner_join(sat_lookup, by = c("muni_key", "year" = "ANO", "month"))
+
+cat("Household-month panel before filtering:", nrow(panel), "rows\n")
+
+# ── Step 3b: Quarterly robustness panel ───────────────────────
+# Collapses Sargassum to quarterly averages and joins quarterly ENCFT.
+# Use to verify that monthly results are not driven by within-quarter
+# survey noise. Fixed effects in robustness: municipality + year×quarter.
+
+sat_quarterly <- sat_coastal %>%
+  mutate(
+    muni_key = clean_name(municipio),
+    quarter  = ceiling(month / 3)
+  ) %>%
+  group_by(muni_key, municipio, provincia, year, quarter) %>%
+  summarise(
+    afai_sargassum = mean(afai_sargassum, na.rm = TRUE),
+    afai_coverage  = mean(afai_coverage,  na.rm = TRUE),
+    afai_mean      = mean(afai_mean,      na.rm = TRUE),
+    .groups = "drop"
   )
 
-panel <- sat_monthly %>%
+instr_quarterly <- sat_instr %>%
+  mutate(quarter = ceiling(month / 3)) %>%
+  group_by(year, quarter) %>%
+  summarise(
+    afai_ocean_mean     = mean(afai_ocean_mean,     na.rm = TRUE),
+    afai_ocean_coverage = mean(afai_ocean_coverage, na.rm = TRUE),
+    .groups = "drop"
+  )
+
+panel_quarterly <- sat_quarterly %>%
   left_join(
     encft_q_match %>% mutate(TRIMESTRE = as.integer(TRIMESTRE) %% 10),
     by = c("muni_key", "year" = "ANO", "quarter" = "TRIMESTRE")
   ) %>%
-  left_join(sat_instr,       by = c("year", "month")) %>%
-  left_join(coastal_lookup,  by = "muni_key") %>%
+  left_join(instr_quarterly,  by = c("year", "quarter")) %>%
+  left_join(coastal_lookup,   by = "muni_key") %>%
   left_join(ocean_dist_lookup, by = "muni_key") %>%
-  filter(!is.na(ID_MUNICIPIO))   # drop satellite rows with no ENCFT match
+  filter(!is.na(ID_MUNICIPIO))
 
-cat("Monthly panel before filtering:", nrow(panel), "rows\n")
+cat("Quarterly robustness panel before filtering:", nrow(panel_quarterly), "rows\n")
 
 # ── Step 4: Create analysis variables ─────────────────────────
+add_common_vars <- function(df) {
+  df %>%
+    mutate(
+      afai_sargassum  = if_else(ocean_dist_m > 20000, NA_real_, afai_sargassum),
+      muni_fe         = factor(ID_MUNICIPIO),
+      year_fe         = factor(year),
+      quarter_fe      = factor(quarter),
+      year_month_fe   = factor(paste0(year, "_m", sprintf("%02d", month))),
+      year_quarter_fe = factor(paste0(year, "_q", quarter))
+    )
+}
+
+# Household-level panel variables
 panel <- panel %>%
+  add_common_vars() %>%
   mutate(
-    # Null out Sargassum for municipalities > 20km from the ocean:
-    # their satellite pixels come from inland lakes, not the ocean.
-    afai_sargassum = if_else(ocean_dist_m > 20000, NA_real_, afai_sargassum),
-    log_income    = log(ingreso_medio + 1),
-    log_income_t1 = log(ingreso_T1 + 1),
-    log_income_t2 = log(ingreso_T2 + 1),
-    log_income_t3 = log(ingreso_T3 + 1),
-    muni_fe          = factor(ID_MUNICIPIO),
-    year_fe          = factor(year),
-    month_fe         = factor(month),
-    quarter_fe       = factor(quarter),
-    year_month_fe    = factor(paste0(year, "_m", sprintf("%02d", month))),
-    year_quarter_fe  = factor(paste0(year, "_q", quarter))
+    log_income    = log(ingreso_hogar + 1),
+    log_income_pc = log(ingreso_pc    + 1)
   ) %>%
   filter(!is.na(log_income), !is.na(afai_sargassum), !is.na(afai_ocean_coverage))
 
-cat("Final monthly panel:", nrow(panel), "observations\n")
+# Municipality-level quarterly robustness panel variables
+panel_quarterly <- panel_quarterly %>%
+  mutate(month = NA_integer_) %>%
+  add_common_vars() %>%
+  mutate(
+    log_income    = log(ingreso_medio + 1),
+    log_income_t1 = log(ingreso_T1 + 1),
+    log_income_t2 = log(ingreso_T2 + 1),
+    log_income_t3 = log(ingreso_T3 + 1)
+  ) %>%
+  filter(!is.na(log_income), !is.na(afai_sargassum), !is.na(afai_ocean_coverage))
+
+cat("Final household-month panel:", nrow(panel), "observations\n")
+cat("Households:         ", n_distinct(panel$ID_HOGAR), "\n")
 cat("Municipalities:     ", n_distinct(panel$ID_MUNICIPIO), "\n")
 cat("Years:              ", paste(sort(unique(panel$year)), collapse = ", "), "\n")
-cat("Months per muni-year (median):",
-    median(panel %>% count(ID_MUNICIPIO, year) %>% pull(n)), "\n")
 cat("Log income mean:    ", round(mean(panel$log_income, na.rm = TRUE), 3), "\n")
 cat("\nMunicipalities by coastal type:\n")
 print(table(panel$coastal_type, useNA = "ifany"))
+
+cat("\nQuarterly robustness panel:", nrow(panel_quarterly), "observations\n")
+cat("Municipalities:     ", n_distinct(panel_quarterly$ID_MUNICIPIO), "\n")
 
 # ── Step 5: Annual panel for robustness ───────────────────────
 sat_annual <- sat_coastal %>%
@@ -236,8 +304,10 @@ panel_annual <- encft_a_match %>%
 cat("\nAnnual robustness panel:", nrow(panel_annual), "observations\n")
 
 # ── Step 6: Save ──────────────────────────────────────────────
-saveRDS(panel,        file.path(path_processed, "panel_monthly.rds"))
-saveRDS(panel_annual, file.path(path_processed, "panel_analysis.rds"))
-write_csv(panel,        file.path(path_processed, "panel_monthly.csv"))
-write_csv(panel_annual, file.path(path_processed, "panel_analysis.csv"))
-cat("\nSaved panel_monthly.rds (main) and panel_analysis.rds (annual robustness)\n")
+saveRDS(panel,           file.path(path_processed, "panel_monthly.rds"))
+saveRDS(panel_quarterly, file.path(path_processed, "panel_quarterly.rds"))
+saveRDS(panel_annual,    file.path(path_processed, "panel_analysis.rds"))
+write_csv(panel,           file.path(path_processed, "panel_monthly.csv"))
+write_csv(panel_quarterly, file.path(path_processed, "panel_quarterly.csv"))
+write_csv(panel_annual,    file.path(path_processed, "panel_analysis.csv"))
+cat("\nSaved panel_monthly.rds (main), panel_quarterly.rds (robustness), panel_analysis.rds (annual robustness)\n")

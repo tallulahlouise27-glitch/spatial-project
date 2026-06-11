@@ -27,8 +27,9 @@ path_figures   <- "figures/"
 dir.create(path_results, showWarnings = FALSE)
 dir.create(path_figures, showWarnings = FALSE)
 
-# ── Load analysis panel ───────────────────────────────────────
-panel <- readRDS(file.path(path_processed, "panel_monthly.rds"))
+# ── Load analysis panels ──────────────────────────────────────
+panel           <- readRDS(file.path(path_processed, "panel_monthly.rds"))
+panel_quarterly <- readRDS(file.path(path_processed, "panel_quarterly.rds"))
 
 # ── Create interaction terms for heterogeneity tests ─────────
 panel <- panel %>%
@@ -37,72 +38,59 @@ panel <- panel %>%
     afai_x_not_coastal = afai_sargassum * is_not_coastal
   )
 
-# ── Non-zero tertile income variables ────────────────────────
-# Creates T1_nz/T2_nz/T3_nz: tertile cutoffs recomputed after
-# excluding zero-income households. The original T1/T2/T3 columns
-# (which include zeros) are untouched.
-# T1_nz = bottom third of households who report positive income.
+# ── Non-zero income subsample ─────────────────────────────────
+# Recomputes tertile cutoffs on positive-income households only.
+# Households with zero income are excluded; tertile_nz identifies
+# their position among earners.
 
-hogar_raw <- readRDS(file.path(path_processed, "encft_hogar.rds"))
-
-hogar_nz <- hogar_raw %>% filter(ingreso_pc > 0)
-
-cuts_nz <- hogar_nz %>%
-  group_by(ANO) %>%
+cuts_nz <- panel %>%
+  filter(ingreso_pc > 0) %>%
+  group_by(year) %>%
   summarise(
     t1_cut_nz = quantile(ingreso_pc, 1/3, na.rm = TRUE),
     t2_cut_nz = quantile(ingreso_pc, 2/3, na.rm = TRUE),
     .groups = "drop"
   )
 
-nz_q <- hogar_nz %>%
-  left_join(cuts_nz, by = "ANO") %>%
+panel <- panel %>%
+  left_join(cuts_nz, by = "year") %>%
   mutate(
     tertile_nz = case_when(
-      ingreso_pc <= t1_cut_nz ~ "T1",
-      ingreso_pc <= t2_cut_nz ~ "T2",
-      TRUE                    ~ "T3"
+      ingreso_pc == 0             ~ NA_character_,
+      ingreso_pc <= t1_cut_nz     ~ "T1",
+      ingreso_pc <= t2_cut_nz     ~ "T2",
+      TRUE                        ~ "T3"
     ),
-    quarter = as.integer(TRIMESTRE) %% 10L
-  ) %>%
-  group_by(ID_MUNICIPIO, ANO, quarter, tertile_nz) %>%
-  summarise(
-    ingreso_nz = weighted.mean(ingreso_hogar,
-                               w = as.numeric(FACTOR_EXPANSION), na.rm = TRUE),
-    .groups = "drop"
-  ) %>%
-  pivot_wider(
-    names_from  = tertile_nz,
-    values_from = ingreso_nz,
-    names_glue  = "ingreso_{tertile_nz}_nz"
+    log_income_nz = if_else(ingreso_pc > 0, log_income, NA_real_)
   )
 
-panel <- panel %>%
-  left_join(nz_q, by = c("ID_MUNICIPIO", "year" = "ANO", "quarter")) %>%
-  mutate(
-    log_income_t1_nz = log(ingreso_T1_nz + 1),
-    log_income_t2_nz = log(ingreso_T2_nz + 1),
-    log_income_t3_nz = log(ingreso_T3_nz + 1)
-  )
-
-cat("Non-zero tertile observations (non-NA, positive log income):\n")
-cat("  T1_nz:", sum(!is.na(panel$ingreso_T1_nz)), "\n")
-cat("  T2_nz:", sum(!is.na(panel$ingreso_T2_nz)), "\n")
-cat("  T3_nz:", sum(!is.na(panel$ingreso_T3_nz)), "\n\n")
+cat("Non-zero income observations:", sum(!is.na(panel$tertile_nz)), "\n\n")
 
 cat("Panel summary:\n")
 cat("Observations:", nrow(panel), "\n")
 cat("Municipalities:", n_distinct(panel$ID_MUNICIPIO), "\n")
 cat("Years:", paste(sort(unique(panel$year)), collapse = ", "), "\n\n")
 
-# ── Model 1: Main — effect on log income ─────────────────────
+# ── Model 1: Main — effect on log household income ───────────
+# Unit of observation: household × month.
+# Treatment (afai_sargassum) varies at municipality-month level.
+# SEs clustered at municipality level — treatment does not vary
+# within municipality-months so household-level clustering would
+# understate error correlation.
 ols_income <- feols(
   log_income ~ afai_sargassum | muni_fe + year_month_fe,
   data    = panel,
   cluster = ~muni_fe
 )
 
-# ── Model 2: Effect on employment rate ───────────────────────
+# ── Model 1b: Per-capita income ───────────────────────────────
+ols_income_pc <- feols(
+  log_income_pc ~ afai_sargassum | muni_fe + year_month_fe,
+  data    = panel,
+  cluster = ~muni_fe
+)
+
+# ── Model 2: Effect on employment ────────────────────────────
 ols_employ <- feols(
   tasa_empleo ~ afai_sargassum | muni_fe + year_month_fe,
   data    = panel,
@@ -110,7 +98,6 @@ ols_employ <- feols(
 )
 
 # ── Model 3: Peak season only (May–Sep) ──────────────────────
-# Restricts to months when Sargassum is most intense.
 ols_peak <- feols(
   log_income ~ afai_sargassum | muni_fe + year_month_fe,
   data    = filter(panel, month %in% 5:9),
@@ -118,84 +105,68 @@ ols_peak <- feols(
 )
 
 # ── Models 4–6: By income tertile ────────────────────────────
-# Tests whether Sargassum hits poorer households harder.
-# Expected: most negative for T1, smaller for T3.
-
+# Tertile is assigned at the household level (annual national distribution).
+# Each household-month obs carries its household's tertile assignment.
 ols_t1 <- feols(
-  log_income_t1 ~ afai_sargassum | muni_fe + year_month_fe,
-  data    = panel,
+  log_income ~ afai_sargassum | muni_fe + year_month_fe,
+  data    = filter(panel, tertile == "T1"),
   cluster = ~muni_fe
 )
 
 ols_t2 <- feols(
-  log_income_t2 ~ afai_sargassum | muni_fe + year_month_fe,
-  data    = panel,
+  log_income ~ afai_sargassum | muni_fe + year_month_fe,
+  data    = filter(panel, tertile == "T2"),
   cluster = ~muni_fe
 )
 
 ols_t3 <- feols(
-  log_income_t3 ~ afai_sargassum | muni_fe + year_month_fe,
-  data    = panel,
+  log_income ~ afai_sargassum | muni_fe + year_month_fe,
+  data    = filter(panel, tertile == "T3"),
   cluster = ~muni_fe
 )
 
-# ── Models 4b–6b: Non-zero tertile income (full year) ─────────
-# Same structure as Models 4–6 but income averaged over positive-income
-# households only, with tertile cutoffs recomputed on that subsample.
+# ── Models 4b–6b: Non-zero income tertiles (full year) ────────
+# Same as 4–6 but restricted to positive-income households with
+# tertile cutoffs recomputed on that subsample.
 
 ols_t1_nz <- feols(
-  log_income_t1_nz ~ afai_sargassum | muni_fe + year_month_fe,
-  data    = panel,
+  log_income_nz ~ afai_sargassum | muni_fe + year_month_fe,
+  data    = filter(panel, tertile_nz == "T1"),
   cluster = ~muni_fe
 )
 
 ols_t2_nz <- feols(
-  log_income_t2_nz ~ afai_sargassum | muni_fe + year_month_fe,
-  data    = panel,
+  log_income_nz ~ afai_sargassum | muni_fe + year_month_fe,
+  data    = filter(panel, tertile_nz == "T2"),
   cluster = ~muni_fe
 )
 
 ols_t3_nz <- feols(
-  log_income_t3_nz ~ afai_sargassum | muni_fe + year_month_fe,
-  data    = panel,
+  log_income_nz ~ afai_sargassum | muni_fe + year_month_fe,
+  data    = filter(panel, tertile_nz == "T3"),
   cluster = ~muni_fe
 )
 
-# ── Model 7: Stacked regression with tertile interactions ─────
-# Single regression that formally tests whether the Sargassum effect
-# differs across income tertiles.
-#
-# Coefficients:
-#   afai_sargassum = effect on T1 (base group, poorest third)
-#   afai_x_t2      = difference in effect for T2 vs T1
-#   afai_x_t3      = difference in effect for T3 vs T1
+# ── Model 7: Formal tertile interaction test ──────────────────
+# Runs a single regression on all households, interacting Sargassum
+# with tertile dummies. Base group = T1 (poorest third).
+# afai_x_t2 / afai_x_t3 = difference in effect vs T1.
 
-panel_long <- panel %>%
-  select(ID_MUNICIPIO, year, month, muni_fe, year_month_fe,
-         afai_sargassum,
-         log_income_t1, log_income_t2, log_income_t3) %>%
-  pivot_longer(
-    cols      = c(log_income_t1, log_income_t2, log_income_t3),
-    names_to  = "tertile",
-    values_to = "log_income_tertile"
-  ) %>%
+panel <- panel %>%
   mutate(
-    tertile = factor(tertile,
-                     levels = c("log_income_t1", "log_income_t2", "log_income_t3"),
-                     labels = c("T1", "T2", "T3")),
+    tertile_factor = factor(tertile, levels = c("T1", "T2", "T3")),
     is_t2          = as.integer(tertile == "T2"),
     is_t3          = as.integer(tertile == "T3"),
     afai_x_t2      = afai_sargassum * is_t2,
     afai_x_t3      = afai_sargassum * is_t3,
-    muni_tertile_fe       = interaction(muni_fe, tertile),
-    year_month_tertile_fe = interaction(year_month_fe, tertile)
-  ) %>%
-  filter(!is.na(log_income_tertile))
+    muni_tertile_fe       = interaction(muni_fe, tertile_factor),
+    year_month_tertile_fe = interaction(year_month_fe, tertile_factor)
+  )
 
 ols_stacked <- feols(
-  log_income_tertile ~ afai_sargassum + afai_x_t2 + afai_x_t3 |
+  log_income ~ afai_sargassum + afai_x_t2 + afai_x_t3 |
     muni_tertile_fe + year_month_tertile_fe,
-  data    = panel_long,
+  data    = panel,
   cluster = ~ID_MUNICIPIO
 )
 
@@ -252,39 +223,75 @@ ols_peak_not_coastal <- safe_ols_peak("not_coastal", panel_peak)
 
 # ── Models 13–15: Peak season by income tertile ───────────────
 ols_peak_t1 <- feols(
-  log_income_t1 ~ afai_sargassum | muni_fe + year_month_fe,
-  data    = panel_peak,
+  log_income ~ afai_sargassum | muni_fe + year_month_fe,
+  data    = filter(panel_peak, tertile == "T1"),
   cluster = ~muni_fe
 )
 
 ols_peak_t2 <- feols(
-  log_income_t2 ~ afai_sargassum | muni_fe + year_month_fe,
-  data    = panel_peak,
+  log_income ~ afai_sargassum | muni_fe + year_month_fe,
+  data    = filter(panel_peak, tertile == "T2"),
   cluster = ~muni_fe
 )
 
 ols_peak_t3 <- feols(
-  log_income_t3 ~ afai_sargassum | muni_fe + year_month_fe,
-  data    = panel_peak,
+  log_income ~ afai_sargassum | muni_fe + year_month_fe,
+  data    = filter(panel_peak, tertile == "T3"),
   cluster = ~muni_fe
 )
 
 # ── Peak season non-zero tertile models ───────────────────────
 ols_peak_t1_nz <- feols(
-  log_income_t1_nz ~ afai_sargassum | muni_fe + year_month_fe,
-  data    = panel_peak,
+  log_income_nz ~ afai_sargassum | muni_fe + year_month_fe,
+  data    = filter(panel_peak, tertile_nz == "T1"),
   cluster = ~muni_fe
 )
 
 ols_peak_t2_nz <- feols(
-  log_income_t2_nz ~ afai_sargassum | muni_fe + year_month_fe,
-  data    = panel_peak,
+  log_income_nz ~ afai_sargassum | muni_fe + year_month_fe,
+  data    = filter(panel_peak, tertile_nz == "T2"),
   cluster = ~muni_fe
 )
 
 ols_peak_t3_nz <- feols(
-  log_income_t3_nz ~ afai_sargassum | muni_fe + year_month_fe,
-  data    = panel_peak,
+  log_income_nz ~ afai_sargassum | muni_fe + year_month_fe,
+  data    = filter(panel_peak, tertile_nz == "T3"),
+  cluster = ~muni_fe
+)
+
+# ── Quarterly robustness regressions ─────────────────────────
+# Collapses treatment to quarterly averages and uses year×quarter FEs,
+# matching the temporal resolution of the ENCFT survey design.
+# Consistent results across monthly and quarterly specs strengthen
+# confidence that findings are not driven by within-quarter survey noise.
+
+panel_quarterly <- panel_quarterly %>%
+  mutate(
+    is_not_coastal     = as.integer(coastal_type == "not_coastal"),
+    afai_x_not_coastal = afai_sargassum * is_not_coastal
+  )
+
+ols_q_income <- feols(
+  log_income ~ afai_sargassum | muni_fe + year_quarter_fe,
+  data    = panel_quarterly,
+  cluster = ~muni_fe
+)
+
+ols_q_peak <- feols(
+  log_income ~ afai_sargassum | muni_fe + year_quarter_fe,
+  data    = filter(panel_quarterly, quarter %in% 2:3),  # Q2/Q3 = May-Sep peak
+  cluster = ~muni_fe
+)
+
+ols_q_coastal     <- feols(
+  log_income ~ afai_sargassum | muni_fe + year_quarter_fe,
+  data    = filter(panel_quarterly, coastal_type == "coastal"),
+  cluster = ~muni_fe
+)
+
+ols_q_not_coastal <- feols(
+  log_income ~ afai_sargassum | muni_fe + year_quarter_fe,
+  data    = filter(panel_quarterly, coastal_type == "not_coastal"),
   cluster = ~muni_fe
 )
 
@@ -518,6 +525,24 @@ p_tertile <- ggplot(tertile_coef, aes(x = estimate, y = group)) +
 ggsave(file.path(path_figures, "coef_plot_tertile.png"),
        p_tertile, width = 7, height = 3, dpi = 150)
 cat("Tertile coefficient plot saved to figures/coef_plot_tertile.png\n")
+
+cat("\n--- Quarterly robustness (municipality + year×quarter FEs) ---\n")
+cat("Sargassum collapsed to quarterly averages; income at quarterly level.\n")
+etable(
+  ols_q_income, ols_q_peak, ols_q_coastal, ols_q_not_coastal,
+  headers  = c("Full Year", "Peak (Q2-Q3)", "Coastal", "Not Coastal"),
+  se.below = TRUE
+)
+
+sink(file.path(path_results, "regression_quarterly_robustness_latex.tex"))
+etable(
+  ols_q_income, ols_q_peak, ols_q_coastal, ols_q_not_coastal,
+  headers  = c("Full Year", "Peak Season (Q2--Q3)", "Coastal", "Not Coastal"),
+  se.below = TRUE,
+  tex      = TRUE,
+  title    = "Quarterly Robustness: Sargassum Effect with Year\\texttimes{}Quarter Fixed Effects, DR 2017--2025"
+)
+sink()
 
 cat("\n====== DONE ======\n")
 cat("Results saved to results/\n")
