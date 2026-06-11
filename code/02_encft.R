@@ -20,7 +20,8 @@ vars_keep <- c(
   "OCUPADO", "DESOCUPADO", "INACTIVO", "PEA",
   "INGRESO_ASALARIADO", "INGRESO_INDEPENDIENTES",
   "PESCA_NO_REMUN", "PESCA_NO_REMUN_MONTO",
-  "RAMA_PRINCIPAL", "RAMA_PRINCIPAL_COD"
+  "RAMA_PRINCIPAL", "RAMA_PRINCIPAL_COD",
+  "GRUPO_SECTOR"
 )
 
 # Find the .xlsx file inside each year's folder
@@ -63,7 +64,15 @@ encft <- encft_raw %>%
                     coalesce(as.numeric(INGRESO_INDEPENDIENTES), 0),
     # 311 = marine fishing, 312 = freshwater fishing (CIIU/ISIC codes)
     # PESCA_NO_REMUN only captures unpaid subsistence fishing (near-zero) — use occupation code instead
-    es_pescador   = as.integer(as.numeric(RAMA_PRINCIPAL_COD) %in% c(311, 312))
+    es_pescador   = as.integer(as.numeric(RAMA_PRINCIPAL_COD) %in% c(311, 312)),
+    # GRUPO_SECTOR is the ONE's official formal/informal classification.
+    # "Informal" + "Servicio Doméstico" = informal; "Formal" = formal;
+    # "Sin sector" = not employed (unemployed/inactive) — coded NA.
+    es_informal   = case_when(
+      GRUPO_SECTOR %in% c("Informal", "Servicio Doméstico") ~ 1L,
+      GRUPO_SECTOR == "Formal"                                    ~ 0L,
+      TRUE                                                        ~ NA_integer_
+    )
   )
 
 # ── Aggregate to household × quarter level ───────────────────
@@ -197,6 +206,16 @@ hogar_monthly <- encft %>%
     ingreso_hogar = sum(ingreso_total, na.rm = TRUE),
     tasa_empleo   = mean(as.integer(OCUPADO) == 1, na.rm = TRUE),
     hogar_pesca   = as.integer(any(es_pescador == 1, na.rm = TRUE)),
+    # Formal/informal sector classification at household level.
+    # n_empleados: members with a known sector (formal OR informal).
+    # share_informal: share of those who are informal/domestic workers.
+    n_empleados   = sum(!is.na(es_informal)),
+    n_informales  = sum(es_informal == 1, na.rm = TRUE),
+    share_informal = if_else(
+      n_empleados > 0,
+      n_informales / n_empleados,
+      NA_real_
+    ),
     .groups = "drop"
   ) %>%
   mutate(ingreso_pc = ingreso_hogar / pmax(n_miembros, 1)) %>%

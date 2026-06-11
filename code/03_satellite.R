@@ -110,9 +110,12 @@ cat("Land mask: Hispaniola (DR + Haiti) — excludes Lago Enriquillo and Lago Az
 
 out_coastal <- file.path(path_processed, "satellite_coastal.rds")
 
+contaminated <- c("Pepillo Salcedo")
+
 if (file.exists(out_coastal)) {
   cat("=== Loading cached coastal AFAI ===\n")
   muni_afai <- readRDS(out_coastal)
+  muni_afai <- muni_afai %>% filter(!municipio %in% contaminated)
 } else {
   cat("=== Downloading coastal AFAI (2017–2025) ===\n")
 
@@ -175,6 +178,14 @@ if (file.exists(out_coastal)) {
   }
 
   muni_afai <- bind_rows(lapply(STUDY_YEARS, process_year))
+
+  # Exclude contaminated municipalities before saving.
+  # Pepillo Salcedo (Manzanillo): AFAI contaminated by Río Masacre river plume;
+  # sensor clips at 0.004 in 20/21 months. Script 04 assigns IDW values instead.
+  n_before  <- nrow(muni_afai)
+  muni_afai <- muni_afai %>% filter(!municipio %in% contaminated)
+  cat("Excluded contaminated municipalities:", paste(contaminated, collapse=", "), "\n")
+  cat("Rows removed:", n_before - nrow(muni_afai), "\n\n")
 
   saveRDS(muni_afai, out_coastal)
   write_csv(muni_afai, file.path(path_processed, "satellite_coastal.csv"))

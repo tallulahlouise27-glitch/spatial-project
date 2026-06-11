@@ -169,17 +169,26 @@ sat_monthly <- sat_coastal %>%
   select(muni_key, year, month, quarter,
          afai_sargassum, afai_coverage, afai_mean)
 
-# ── Nearest-coastal crosswalk for non-coastal municipalities ──
-# Non-coastal municipalities experience Sargassum indirectly through
-# coastal neighbours (supply chains, tourism spillovers). Rather than
-# deriving a sparse and unreliable satellite signal from the few ocean
-# pixels nearest their boundary, we assign each non-coastal municipality
-# the Sargassum values of its nearest coastal neighbour.
+# ── IDW assignment for non-coastal municipalities ─────────────
+# Each non-coastal municipality receives a weighted average of ALL
+# coastal municipalities' Sargassum values, weighted by 1/distance^2.
+# This avoids the hub-and-spoke problem of nearest-feature matching
+# (where one coastal municipality dominates many inland ones) and gives
+# each inland municipality a smooth, geographically sensible exposure value.
 
-coastal_keys     <- coastal_lookup %>% filter(coastal_type == "coastal")     %>% pull(muni_key)
-non_coastal_keys <- coastal_lookup %>% filter(coastal_type == "not_coastal") %>% pull(muni_key)
+# Pepillo Salcedo is geographically coastal but its satellite data is
+# contaminated (river plume, sensor clipping). Treat it as non-coastal
+# so it receives IDW-weighted values from its neighbours instead.
+contaminated_munis <- c("pepillo salcedo")
 
-coastal_geom     <- dr_sf %>%
+coastal_keys     <- coastal_lookup %>%
+  filter(coastal_type == "coastal", !muni_key %in% contaminated_munis) %>%
+  pull(muni_key)
+non_coastal_keys <- coastal_lookup %>%
+  filter(coastal_type == "not_coastal" | muni_key %in% contaminated_munis) %>%
+  pull(muni_key)
+
+coastal_geom <- dr_sf %>%
   mutate(muni_key = clean_name(municipio)) %>%
   filter(muni_key %in% coastal_keys) %>%
   st_transform(32619)
@@ -189,29 +198,53 @@ non_coastal_geom <- dr_sf %>%
   filter(muni_key %in% non_coastal_keys) %>%
   st_transform(32619)
 
-nearest_idx  <- st_nearest_feature(non_coastal_geom, coastal_geom)
-nc_crosswalk <- tibble(
-  muni_key        = non_coastal_geom$muni_key,
-  source_coastal  = coastal_geom$muni_key[nearest_idx]
+# Distance matrix (metres): rows = non-coastal, cols = coastal
+dist_matrix <- st_distance(
+  st_centroid(non_coastal_geom),
+  st_centroid(coastal_geom)
 )
+dist_mat <- matrix(as.numeric(dist_matrix),
+                   nrow = nrow(non_coastal_geom),
+                   ncol = nrow(coastal_geom))
 
-cat("Non-coastal → nearest coastal assignments:\n")
-print(nc_crosswalk, n = Inf)
-cat("\n")
+# IDW weights: w = 1/d^2, normalised so each non-coastal row sums to 1
+weight_mat <- 1 / dist_mat^2
+weight_mat <- weight_mat / rowSums(weight_mat)
 
-# Coastal municipalities keep their own satellite data.
-# Non-coastal municipalities receive their nearest coastal neighbour's data,
-# relabelled with their own muni_key so downstream joins work unchanged.
-sat_coastal_vals     <- sat_monthly %>% filter(muni_key %in% coastal_keys)
-sat_non_coastal_vals <- nc_crosswalk %>%
+# Long-form weight table: one row per non-coastal × coastal pair
+idw_weights <- expand_grid(
+  nc_idx = seq_len(nrow(non_coastal_geom)),
+  c_idx  = seq_len(nrow(coastal_geom))
+) %>%
+  mutate(
+    muni_key       = non_coastal_geom$muni_key[nc_idx],
+    source_coastal = coastal_geom$muni_key[c_idx],
+    weight         = weight_mat[cbind(nc_idx, c_idx)]
+  ) %>%
+  select(muni_key, source_coastal, weight)
+
+cat("IDW weights computed:", nrow(idw_weights), "non-coastal × coastal pairs\n")
+cat("Non-coastal municipalities:", n_distinct(idw_weights$muni_key), "\n\n")
+
+sat_coastal_vals <- sat_monthly %>% filter(muni_key %in% coastal_keys)
+
+# For each non-coastal municipality × month, compute IDW-weighted Sargassum
+sat_non_coastal_vals <- idw_weights %>%
   left_join(
     sat_coastal_vals %>% rename(source_coastal = muni_key),
-    by = "source_coastal"
+    by = "source_coastal",
+    relationship = "many-to-many"
   ) %>%
-  select(-source_coastal)
+  group_by(muni_key, year, month, quarter) %>%
+  summarise(
+    afai_sargassum = weighted.mean(afai_sargassum, w = weight, na.rm = TRUE),
+    afai_coverage  = weighted.mean(afai_coverage,  w = weight, na.rm = TRUE),
+    afai_mean      = weighted.mean(afai_mean,      w = weight, na.rm = TRUE),
+    .groups = "drop"
+  )
 
 sat_monthly <- bind_rows(sat_coastal_vals, sat_non_coastal_vals)
-cat("Satellite rows after crosswalk (coastal + non-coastal):", nrow(sat_monthly), "\n\n")
+cat("Satellite rows after IDW (coastal + non-coastal):", nrow(sat_monthly), "\n\n")
 
 # Build satellite + instrument lookup: one row per muni-month
 sat_lookup <- sat_monthly %>%
@@ -220,12 +253,9 @@ sat_lookup <- sat_monthly %>%
   left_join(ocean_dist_lookup, by = "muni_key")
 
 panel <- hogar_m_match %>%
-  rename(month = MES) %>%
-  mutate(
-    quarter  = as.integer(TRIMESTRE) %% 10,
-    TRIMESTRE = NULL
-  ) %>%
-  inner_join(sat_lookup, by = c("muni_key", "year" = "ANO", "month"))
+  rename(month = MES, year = ANO) %>%
+  mutate(TRIMESTRE = NULL) %>%
+  inner_join(sat_lookup, by = c("muni_key", "year", "month"))
 
 cat("Household-month panel before filtering:", nrow(panel), "rows\n")
 
@@ -247,14 +277,22 @@ sat_quarterly_raw <- sat_coastal %>%
     .groups = "drop"
   )
 
-# Apply same nearest-coastal crosswalk to quarterly panel
-sat_q_coastal_vals     <- sat_quarterly_raw %>% filter(muni_key %in% coastal_keys)
-sat_q_non_coastal_vals <- nc_crosswalk %>%
+# Apply same IDW weights to quarterly panel
+sat_q_coastal_vals <- sat_quarterly_raw %>% filter(muni_key %in% coastal_keys)
+
+sat_q_non_coastal_vals <- idw_weights %>%
   left_join(
     sat_q_coastal_vals %>% rename(source_coastal = muni_key),
-    by = "source_coastal"
+    by = "source_coastal",
+    relationship = "many-to-many"
   ) %>%
-  select(-source_coastal)
+  group_by(muni_key, year, quarter) %>%
+  summarise(
+    afai_sargassum = weighted.mean(afai_sargassum, w = weight, na.rm = TRUE),
+    afai_coverage  = weighted.mean(afai_coverage,  w = weight, na.rm = TRUE),
+    afai_mean      = weighted.mean(afai_mean,      w = weight, na.rm = TRUE),
+    .groups = "drop"
+  )
 
 sat_quarterly <- bind_rows(sat_q_coastal_vals, sat_q_non_coastal_vals)
 
@@ -285,10 +323,12 @@ add_common_vars <- function(df) {
     mutate(
       afai_sargassum  = if_else(ocean_dist_m > 20000, NA_real_, afai_sargassum),
       muni_fe         = factor(ID_MUNICIPIO),
-      year_fe         = factor(year),
-      quarter_fe      = factor(quarter),
-      year_month_fe   = factor(paste0(year, "_m", sprintf("%02d", month))),
-      year_quarter_fe = factor(paste0(year, "_q", quarter))
+      year_fe         = factor(as.integer(.data[["year"]])),
+      quarter_fe      = factor(as.integer(.data[["quarter"]])),
+      year_month_fe   = factor(paste0(as.integer(.data[["year"]]), "_m",
+                                      sprintf("%02d", as.integer(.data[["month"]])))),
+      year_quarter_fe = factor(paste0(as.integer(.data[["year"]]), "_q",
+                                      as.integer(.data[["quarter"]])))
     )
 }
 
