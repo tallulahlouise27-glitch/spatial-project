@@ -169,6 +169,50 @@ sat_monthly <- sat_coastal %>%
   select(muni_key, year, month, quarter,
          afai_sargassum, afai_coverage, afai_mean)
 
+# ── Nearest-coastal crosswalk for non-coastal municipalities ──
+# Non-coastal municipalities experience Sargassum indirectly through
+# coastal neighbours (supply chains, tourism spillovers). Rather than
+# deriving a sparse and unreliable satellite signal from the few ocean
+# pixels nearest their boundary, we assign each non-coastal municipality
+# the Sargassum values of its nearest coastal neighbour.
+
+coastal_keys     <- coastal_lookup %>% filter(coastal_type == "coastal")     %>% pull(muni_key)
+non_coastal_keys <- coastal_lookup %>% filter(coastal_type == "not_coastal") %>% pull(muni_key)
+
+coastal_geom     <- dr_sf %>%
+  mutate(muni_key = clean_name(municipio)) %>%
+  filter(muni_key %in% coastal_keys) %>%
+  st_transform(32619)
+
+non_coastal_geom <- dr_sf %>%
+  mutate(muni_key = clean_name(municipio)) %>%
+  filter(muni_key %in% non_coastal_keys) %>%
+  st_transform(32619)
+
+nearest_idx  <- st_nearest_feature(non_coastal_geom, coastal_geom)
+nc_crosswalk <- tibble(
+  muni_key        = non_coastal_geom$muni_key,
+  source_coastal  = coastal_geom$muni_key[nearest_idx]
+)
+
+cat("Non-coastal → nearest coastal assignments:\n")
+print(nc_crosswalk, n = Inf)
+cat("\n")
+
+# Coastal municipalities keep their own satellite data.
+# Non-coastal municipalities receive their nearest coastal neighbour's data,
+# relabelled with their own muni_key so downstream joins work unchanged.
+sat_coastal_vals     <- sat_monthly %>% filter(muni_key %in% coastal_keys)
+sat_non_coastal_vals <- nc_crosswalk %>%
+  left_join(
+    sat_coastal_vals %>% rename(source_coastal = muni_key),
+    by = "source_coastal"
+  ) %>%
+  select(-source_coastal)
+
+sat_monthly <- bind_rows(sat_coastal_vals, sat_non_coastal_vals)
+cat("Satellite rows after crosswalk (coastal + non-coastal):", nrow(sat_monthly), "\n\n")
+
 # Build satellite + instrument lookup: one row per muni-month
 sat_lookup <- sat_monthly %>%
   left_join(sat_instr,        by = c("year", "month")) %>%
@@ -190,18 +234,29 @@ cat("Household-month panel before filtering:", nrow(panel), "rows\n")
 # Use to verify that monthly results are not driven by within-quarter
 # survey noise. Fixed effects in robustness: municipality + year×quarter.
 
-sat_quarterly <- sat_coastal %>%
+sat_quarterly_raw <- sat_coastal %>%
   mutate(
     muni_key = clean_name(municipio),
     quarter  = ceiling(month / 3)
   ) %>%
-  group_by(muni_key, municipio, provincia, year, quarter) %>%
+  group_by(muni_key, year, quarter) %>%
   summarise(
     afai_sargassum = mean(afai_sargassum, na.rm = TRUE),
     afai_coverage  = mean(afai_coverage,  na.rm = TRUE),
     afai_mean      = mean(afai_mean,      na.rm = TRUE),
     .groups = "drop"
   )
+
+# Apply same nearest-coastal crosswalk to quarterly panel
+sat_q_coastal_vals     <- sat_quarterly_raw %>% filter(muni_key %in% coastal_keys)
+sat_q_non_coastal_vals <- nc_crosswalk %>%
+  left_join(
+    sat_q_coastal_vals %>% rename(source_coastal = muni_key),
+    by = "source_coastal"
+  ) %>%
+  select(-source_coastal)
+
+sat_quarterly <- bind_rows(sat_q_coastal_vals, sat_q_non_coastal_vals)
 
 instr_quarterly <- sat_instr %>%
   mutate(quarter = ceiling(month / 3)) %>%
